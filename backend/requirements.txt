@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+paddleocr>=3.0.0
+pydantic
+opencv-python
+numpy
