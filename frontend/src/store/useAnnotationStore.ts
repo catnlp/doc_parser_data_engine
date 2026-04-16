@@ -29,7 +29,6 @@ interface AnnotationStore {
   selectedElementId: string | null;
   hoveredElementId: string | null;
   toolMode: ToolMode;
-  rightPanelTab: 'list' | 'detail';
   zoom: number;
   leftPanelWidth: number;
 
@@ -44,7 +43,6 @@ interface AnnotationStore {
   setSelectedElementId: (id: string | null) => void;
   setHoveredElementId: (id: string | null) => void;
   setToolMode: (mode: ToolMode) => void;
-  setRightPanelTab: (tab: 'list' | 'detail') => void;
   setZoom: (zoom: number) => void;
   setLeftPanelWidth: (width: number) => void;
   getPageElements: () => PdfElement[];
@@ -76,7 +74,6 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
   selectedElementId: null,
   hoveredElementId: null,
   toolMode: 'select',
-  rightPanelTab: 'list',
   zoom: 100,
   leftPanelWidth: 0,
 
@@ -201,13 +198,11 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
 
   setCurrentPage: (page) => set({ currentPage: page, selectedElementId: null, hoveredElementId: null }),
 
-  setSelectedElementId: (id) => set({ selectedElementId: id, rightPanelTab: id ? 'detail' : 'list' }),
+  setSelectedElementId: (id) => set({ selectedElementId: id }),
 
   setHoveredElementId: (id) => set({ hoveredElementId: id }),
 
   setToolMode: (mode) => set({ toolMode: mode }),
-
-  setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
 
   setZoom: (zoom) => set({ zoom }),
 
