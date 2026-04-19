@@ -39,6 +39,7 @@ interface AnnotationStore {
 
   loadDocument: (pages: PdfInfo[], pageInfo: PageInfo[], imagePath: string) => void;
   loadDocumentFromApi: (file: File) => Promise<void>;
+  resetState: () => void;
   setCurrentPage: (page: number) => void;
   setSelectedElementId: (id: string | null) => void;
   setHoveredElementId: (id: string | null) => void;
@@ -195,6 +196,24 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
       set({ apiStatus: 'error', apiError: e.message || 'Unknown error' });
     }
   },
+
+  resetState: () => set({
+    currentPage: 1,
+    totalPages: 0,
+    pdfInfo: [],
+    pageInfo: [],
+    imagePath: '',
+    pdfFile: null,
+    renderedPages: [],
+    selectedElementId: null,
+    hoveredElementId: null,
+    toolMode: 'select',
+    zoom: 100,
+    dirtyPages: new Set<number>(),
+    elementDraftContent: null,
+    apiStatus: 'idle',
+    apiError: null,
+  }),
 
   setCurrentPage: (page) => set({ currentPage: page, selectedElementId: null, hoveredElementId: null }),
 

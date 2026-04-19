@@ -7,6 +7,7 @@ export const BBOX_COLORS = {
   table_caption: '#95DE64',
   figure: '#FA8C16',
   figure_caption: '#FFC069',
+  figure_title: '#FFC069',
   equation: '#722ED1',
   doc_title: '#13C2C2',
   paragraph_title: '#13C2C2',
@@ -15,6 +16,14 @@ export const BBOX_COLORS = {
   aside_text: '#595959',
   reference: '#8C8C8C',
   formula: '#722ED1',
+  image: '#FA8C16',
+  image_caption: '#FFC069',
+  number: '#D9D9D9',
+  page_number: '#D9D9D9',
+  page_footnote: '#D9D9D9',
+  droped_text: '#595959',
+  code_txt: '#2F54EB',
+  code_txt_caption: '#8C8C8C',
 } as const;
 
 export const TYPE_LABELS: Record<string, string> = {
@@ -26,6 +35,7 @@ export const TYPE_LABELS: Record<string, string> = {
   table_caption: 'Table Caption',
   figure: 'Figure',
   figure_caption: 'Figure Caption',
+  figure_title: 'Figure Title',
   equation: 'Equation',
   doc_title: 'Doc Title',
   paragraph_title: 'Paragraph Title',
@@ -34,6 +44,14 @@ export const TYPE_LABELS: Record<string, string> = {
   aside_text: 'Aside Text',
   reference: 'Reference',
   formula: 'Formula',
+  image: 'Image',
+  image_caption: 'Image Caption',
+  number: 'Number',
+  page_number: 'Page Number',
+  page_footnote: 'Page Footnote',
+  droped_text: 'Dropped Text',
+  code_txt: 'Code',
+  code_txt_caption: 'Code Caption',
 } as const;
 
 export const TYPE_ICONS: Record<string, string> = {
@@ -45,6 +63,7 @@ export const TYPE_ICONS: Record<string, string> = {
   table_caption: '📊',
   figure: '🖼️',
   figure_caption: '🖼️',
+  figure_title: '🖼️',
   equation: '📐',
   doc_title: '📖',
   paragraph_title: '📑',
@@ -53,6 +72,14 @@ export const TYPE_ICONS: Record<string, string> = {
   aside_text: '💬',
   reference: '📑',
   formula: '📐',
+  image: '🖼️',
+  image_caption: '🖼️',
+  number: '🔢',
+  page_number: '🔢',
+  page_footnote: '📑',
+  droped_text: '📝',
+  code_txt: '💻',
+  code_txt_caption: '💻',
 } as const;
 
 export const ELEMENT_TYPES = [
@@ -63,6 +90,12 @@ export const ELEMENT_TYPES = [
   'table',
   'table_caption',
   'figure',
+  'figure_title',
   'figure_caption',
   'equation',
+  'image',
+  'image_caption',
+  'number',
+  'page_number',
+  'page_footnote',
 ] as const;

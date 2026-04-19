@@ -146,12 +146,13 @@ export function LeftPanel({ pdfFile, pageNumber, pageInfo, renderedImage }: Left
               const isHovered = el.id === hoveredElementId;
               const bx = bbox.minX * displayScale;
               const by = bbox.minY * displayScale;
+              const fillColor = isSelected ? `${color}30` : isHovered ? `${color}15` : 'transparent';
               return (
                 <g key={el.id}>
                   <polygon
                     className="bbox-rect"
                     points={points}
-                    fill={isSelected ? `${color}40` : isHovered ? `${color}25` : `${color}15`}
+                    fill={fillColor}
                     stroke={isSelected || isHovered ? color : color}
                     strokeWidth={isSelected ? 3 : isHovered ? 2 : 1}
                     strokeDasharray={isHovered && !isSelected ? '5,3' : 'none'}

@@ -1,97 +1,113 @@
-import { useState, useCallback, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import './styles/annotation.css';
+import './styles/upload.css';
+import './styles/document-list.css';
 import { useAnnotationStore } from './store/useAnnotationStore';
+import { useDocumentListStore } from './store/useDocumentListStore';
+import { FolderUpload } from './components/FolderUpload';
+import { PdfListView } from './components/PdfListView';
 import { TopBar } from './components/TopBar';
 import { BottomNav } from './components/BottomNav';
 import { LeftPanel } from './components/left-panel/LeftPanel';
 import { RightPanel } from './components/right-panel/RightPanel';
 import { ResizableSplit } from './components/ResizableSplit';
+import { parseAllPendingDocuments } from './utils/parsePdf';
+import type { PdfDocument } from './types/document';
+import type { PdfElement } from './types/omnidoc';
 
 function App() {
-  const loadDocumentFromApi = useAnnotationStore((s) => s.loadDocumentFromApi);
-  const apiStatus = useAnnotationStore((s) => s.apiStatus);
-  const apiError = useAnnotationStore((s) => s.apiError);
-  const initialized = apiStatus === 'done' || apiStatus === 'error';
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const appView = useDocumentListStore((s) => s.appView);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      console.log('Selected file:', file.name);
-      await loadDocumentFromApi(file);
-    } catch (err: any) {
-      console.error('File upload error:', err);
-    }
-  };
-
-  if (!initialized) {
-    return (
-      <div className="loading-screen" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-        <div style={{ textAlign: 'center' }}>
-          {(apiStatus === 'idle' || apiStatus === 'loading') && (
-            <>
-              <p style={{ marginBottom: 16, color: '#666' }}>选择 PDF 文档开始标注</p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf"
-                onChange={handleFileChange}
-                style={{ display: 'none' }}
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                style={{ padding: '12px 32px', fontSize: 16, background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}
-              >
-                选择 PDF 文件
-              </button>
-              {apiStatus === 'loading' && (
-                <p style={{ marginTop: 16, color: '#666' }}>正在处理 PDF...</p>
-              )}
-            </>
-          )}
-          {apiStatus === 'calling_layout' && (
-            <div>
-              <p className="spinner" style={{ marginBottom: 12 }}>⏳</p>
-              <p>正在分析版面...</p>
-            </div>
-          )}
-          {apiStatus === 'calling_ocr' && (
-            <div>
-              <p className="spinner" style={{ marginBottom: 12 }}>⏳</p>
-              <p>正在调用 OCR 解析文本...</p>
-            </div>
-          )}
-          {apiStatus === 'error' && (
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ color: '#ef4444', marginBottom: 12 }}>⚠️ 处理出错</p>
-              <p style={{ color: '#666', marginBottom: 16 }}>{apiError}</p>
-              <button
-                onClick={() => {
-                  useAnnotationStore.setState({ apiStatus: 'idle', apiError: null });
-                  setTimeout(() => fileInputRef.current?.click(), 100);
-                }}
-                style={{ padding: '8px 24px', fontSize: 14, background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
-              >
-                重试
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    );
+  if (appView === 'list') {
+    return <ListScreen />;
   }
-
-  return <PageLoader />;
+  return <AnnotateScreen />;
 }
 
-function PageLoader() {
+function ListScreen() {
+  const addDocuments = useDocumentListStore((s) => s.addDocuments);
+  const isParsing = useDocumentListStore((s) => s.hasParsingDocuments);
+
+  const handleFilesSelected = useCallback((files: File[]) => {
+    addDocuments(files);
+    setTimeout(() => {
+      parseAllPendingDocuments();
+    }, 100);
+  }, [addDocuments]);
+
+  useEffect(() => {
+    if (!isParsing) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isParsing]);
+
+  return (
+    <div className="list-screen">
+      <FolderUpload onFilesSelected={handleFilesSelected} />
+      <PdfListView />
+    </div>
+  );
+}
+
+function AnnotateScreen() {
+  const selectedDocumentId = useDocumentListStore((s) => s.selectedDocumentId);
+  const pdfFile = useAnnotationStore((s) => s.pdfFile);
+
   const currentPage = useAnnotationStore((s) => s.currentPage);
   const totalPages = useAnnotationStore((s) => s.totalPages);
   const pdfInfo = useAnnotationStore((s) => s.pdfInfo);
   const pageInfo = useAnnotationStore((s) => s.pageInfo);
   const renderedPages = useAnnotationStore((s) => s.renderedPages);
-  const pdfFile = useAnnotationStore((s) => s.pdfFile);
+
+  useEffect(() => {
+    if (!selectedDocumentId) return;
+
+    const doc = useDocumentListStore.getState().documents.find((d) => d.id === selectedDocumentId);
+    if (!doc) return;
+
+    loadDocument(doc);
+  }, [selectedDocumentId]);
+
+  const loadDocument = (doc: PdfDocument) => {
+    const totalPages = doc.parsedData.length;
+    if (totalPages === 0) return;
+
+    const pdfInfoList: Array<{ pdf_info: PdfElement[]; page_info: { width: number; height: number } }> = [];
+    const pageInfoList: Array<{ width: number; height: number }> = [];
+    const renderedPagesList: Array<{ imageBase64: string; width: number; height: number }> = [];
+
+    for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
+      const data = doc.parsedData[pageIdx];
+      if (!data) break;
+
+      const elements: PdfElement[] = data.ocrElements.map((el, i) => ({
+        id: `el_${pageIdx}_${i}_${doc.id}`,
+        category_type: el.category_type as PdfElement['category_type'],
+        poly: el.poly,
+        order: i,
+        latex: el.category_type === 'equation' ? el.text : '',
+        html: el.category_type === 'table' ? el.text : '',
+        markdown: el.text || '',
+        image_path: '',
+      }));
+
+      pdfInfoList.push({ pdf_info: elements, page_info: { width: data.width, height: data.height } });
+      pageInfoList.push({ width: data.width, height: data.height });
+      renderedPagesList.push({ imageBase64: data.imageBase64, width: data.width, height: data.height });
+    }
+
+    useAnnotationStore.setState({
+      pdfInfo: pdfInfoList,
+      pageInfo: pageInfoList,
+      imagePath: doc.name,
+      pdfFile: doc.file,
+      totalPages,
+      currentPage: 1,
+      apiStatus: 'done',
+      renderedPages: renderedPagesList,
+    });
+  };
 
   const handlePageChange = useCallback((page: number) => {
     useAnnotationStore.getState().setCurrentPage(page);
@@ -107,9 +123,8 @@ function PageLoader() {
     <div className="annotation-app">
       <TopBar onPageChange={handlePageChange} pdfFile={pdfFile} totalPages={totalPages} />
       <ResizableSplit minWidthLeft={320} minWidthRight={320} initialRatio={0.55}>
-        {(leftWidth) => (
+        {() => (
           <LeftPanel
-            width={leftWidth}
             pdfFile={pdfFile}
             pageNumber={currentPage}
             pageInfo={{ width: currentPageInfo.width, height: currentPageInfo.height }}
@@ -124,4 +139,3 @@ function PageLoader() {
 }
 
 export default App;
-
