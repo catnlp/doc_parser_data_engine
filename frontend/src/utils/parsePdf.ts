@@ -41,7 +41,18 @@ async function callLayoutApi(imageBase64: string) {
   return resp.json() as unknown as { page_info?: { width: number; height: number }; pageInfo?: { width: number; height: number }; elements: Array<{ category_type: string; poly: number[]; order: number; score: number }> };
 }
 
-async function callOcrApi(
+async function callRemoteOcrApi(imageBase64: string) {
+  const cfg = API_CONFIG.remoteOcr;
+  const resp = await fetch(`${cfg.url}${cfg.endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: imageBase64 }),
+  });
+  if (!resp.ok) throw new Error(`Remote OCR API ${resp.status}`);
+  return resp.json() as unknown as { text: string; details: Array<{ text: string; confidence: number; box: number[][] }> };
+}
+
+async function callLocalOcrApi(
   imageBase64: string,
   layoutBboxes: Array<{ poly: number[]; category_type: string }>,
 ) {
@@ -54,8 +65,32 @@ async function callOcrApi(
       layout_bboxes: layoutBboxes,
     }),
   });
-  if (!resp.ok) throw new Error(`OCR API ${resp.status}`);
+  if (!resp.ok) throw new Error(`Local OCR API ${resp.status}`);
   return resp.json() as unknown as { elements: Array<{ category_type: string; text: string }> };
+}
+
+async function callOcrApi(
+  imageBase64: string,
+  layoutBboxes: Array<{ poly: number[]; category_type: string }>,
+) {
+  const useRemote = API_CONFIG.remoteOcr.enabled;
+
+  if (useRemote) {
+    try {
+      const remoteResult = await callRemoteOcrApi(imageBase64);
+      const ocrElements = remoteResult.details.map((d, i) => ({
+        category_type: layoutBboxes[i]?.category_type || 'text',
+        text: d.text,
+        poly: layoutBboxes[i]?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
+      }));
+      return { elements: ocrElements };
+    } catch {
+      const localResult = await callLocalOcrApi(imageBase64, layoutBboxes);
+      return localResult;
+    }
+  }
+
+  return callLocalOcrApi(imageBase64, layoutBboxes);
 }
 
 export async function parsePdfDocument(docId: string): Promise<void> {
