@@ -16,6 +16,12 @@ import type { PdfDocument } from './types/document';
 import type { PdfElement } from './types/omnidoc';
 
 function App() {
+  const loadFromLocalStorage = useDocumentListStore((s) => s.loadFromLocalStorage);
+
+  useEffect(() => {
+    loadFromLocalStorage();
+  }, [loadFromLocalStorage]);
+
   const appView = useDocumentListStore((s) => s.appView);
 
   if (appView === 'list') {
