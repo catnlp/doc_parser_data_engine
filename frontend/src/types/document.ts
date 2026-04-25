@@ -1,4 +1,4 @@
-export type DocumentStatus = 'pending' | 'parsing' | 'done' | 'error';
+export type DocumentStatus = 'pending' | 'parsing' | 'done' | 'error' | 'saved';
 
 export interface ParsedPageData {
   imageBase64: string;
