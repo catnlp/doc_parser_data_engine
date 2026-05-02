@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { PdfInfo, PageInfo, PdfElement } from '../types/omnidoc';
+import type { OcrResponse } from '../api/models';
 import { pdfjs } from 'react-pdf';
 
 export type ToolMode = 'select' | 'create';
@@ -118,12 +119,12 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
       ctx.fillStyle = 'white';
       ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
 
-      await page.render({ 
-        canvasContext: ctx, 
-        viewport, 
-        isEvalSupported: false, 
+      await (page as unknown as { render: (params: Record<string, unknown>) => { promise: Promise<void> } }).render({
+        canvasContext: ctx,
+        viewport,
+        isEvalSupported: false,
         enableWebGL: false,
-        background: 'white' 
+        background: 'white',
       }).promise;
       
       const imageBase64 = canvasToImage(canvasEl);
@@ -167,15 +168,15 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
         throw new Error(`OCR API failed with status ${ocrResp.status}`);
       }
       
-      const ocrJson = await ocrResp.json();
+      const ocrJson = await ocrResp.json() as OcrResponse;
 
-      const elements = ((ocrJson as any).elements || []).map(
+      const elements = (ocrJson.elements || []).map(
         (el: { category_type: string; text: string }, i: number) => ({
           id: `el_${i}_${Date.now()}`,
           category_type: el.category_type as PdfElement['category_type'],
           poly: layoutResult.elements[i]?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
           order: i,
-          latex: el.category_type === 'equation' ? el.text : '',
+          latex: (el.category_type === 'equation' || el.category_type === 'formula' || el.category_type === 'display_formula') ? el.text : '',
           html: el.category_type === 'table' ? el.text : '',
           markdown: el.text || '',
           image_path: '',
@@ -191,9 +192,9 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
         currentPage: 1,
         apiStatus: 'done',
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('loadDocumentFromApi error:', e);
-      set({ apiStatus: 'error', apiError: e.message || 'Unknown error' });
+      set({ apiStatus: 'error', apiError: e instanceof Error ? e.message : 'Unknown error' });
     }
   },
 
@@ -277,7 +278,7 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
 
   markPageDirty: () => set((state) => ({ dirtyPages: new Set(state.dirtyPages).add(state.currentPage) })),
 
-  markPageClean: () => set((state) => ({ dirtyPages: new Set(state.dirtyPages).delete(state.currentPage) })),
+  markPageClean: () => set((state) => { const next = new Set(state.dirtyPages); next.delete(state.currentPage); return { dirtyPages: next }; }),
 
   isPageDirty: () => get().dirtyPages.has(get().currentPage),
 

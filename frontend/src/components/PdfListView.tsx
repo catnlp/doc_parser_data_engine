@@ -1,11 +1,12 @@
 import { useRef, useCallback } from 'react';
+import JSZip from 'jszip';
 import { useDocumentListStore } from '../store/useDocumentListStore';
 import { parsePdfDocument } from '../utils/parsePdf';
-import type { DocumentStatus } from '../types/document';
+import type { DocumentStatus, PdfDocument } from '../types/document';
 
 const STATUS_LABELS: Record<DocumentStatus, string> = {
   pending: '⏳ 待解析',
-  parsing: '🔄 解析中',
+  parsing: '',
   done: '✅ 解析完成',
   error: '❌ 解析失败',
   saved: '💾 已保存',
@@ -18,6 +19,129 @@ const STATUS_COLORS: Record<DocumentStatus, string> = {
   error: '#EF4444',
   saved: '#F59E0B',
 };
+
+async function exportDocumentAsZip(doc: PdfDocument) {
+  const pages = doc.parsedData;
+  if (!pages || pages.length === 0) {
+    alert('No parsed data to export');
+    return;
+  }
+
+  const failures: string[] = [];
+
+  try {
+    const zip = new JSZip();
+    const baseName = doc.name.replace(/\.pdf$/i, '');
+    let figureIdx = 0;
+    const exportElements: Array<{ page: number; category_type: string; text: string; poly: number[] }> = [];
+
+    for (let pageIdx = 0; pageIdx < pages.length; pageIdx++) {
+      const pageData = pages[pageIdx];
+      if (!pageData) continue;
+
+      // Add page image
+      if (pageData.imageBase64) {
+        const imgBase64 = pageData.imageBase64.split(',')[1] || pageData.imageBase64;
+        zip.file(`${baseName}/page_${String(pageIdx + 1).padStart(3, '0')}.png`, imgBase64, { base64: true });
+      }
+
+      // Process layout elements
+      const pageElements = pageData.layoutElements.map((el, i) => ({
+        category_type: el.category_type,
+        poly: el.poly,
+        text: pageData.ocrElements[i]?.text || '',
+      }));
+
+      // Extract figures/tables as separate images
+      if (pageData.imageBase64) {
+        for (const el of pageElements) {
+          if (el.category_type !== 'figure' && el.category_type !== 'table') continue;
+          const poly = el.poly;
+          if (poly.length < 8) continue;
+
+          const xMin = Math.min(poly[0], poly[2], poly[4], poly[6]);
+          const yMin = Math.min(poly[1], poly[3], poly[5], poly[7]);
+          const xMax = Math.max(poly[0], poly[2], poly[4], poly[6]);
+          const yMax = Math.max(poly[1], poly[3], poly[5], poly[7]);
+
+          const cropWidth = Math.round(xMax - xMin);
+          const cropHeight = Math.round(yMax - yMin);
+          if (cropWidth <= 0 || cropHeight <= 0) {
+            figureIdx++;
+            failures.push(`页面 ${pageIdx + 1} ${el.category_type} 元素坐标无效（宽=${cropWidth}, 高=${cropHeight}），已跳过`);
+            continue;
+          }
+
+          figureIdx++;
+          const idxStr = String(figureIdx).padStart(3, '0');
+
+          // Crop the region from the rendered page image
+          const img = new Image();
+          try {
+            await new Promise<void>((resolve, reject) => {
+              img.onload = () => resolve();
+              img.onerror = () => reject(new Error(`页面 ${pageIdx + 1} 图片加载失败`));
+              img.src = pageData.imageBase64;
+            });
+          } catch (e: any) {
+            failures.push(e.message || `页面 ${pageIdx + 1} ${el.category_type} 图片加载异常`);
+            continue;
+          }
+
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            failures.push(`页面 ${pageIdx + 1} ${el.category_type} 无法获取 Canvas 上下文`);
+            continue;
+          }
+          canvas.width = cropWidth;
+          canvas.height = cropHeight;
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(
+            img,
+            xMin, yMin, canvas.width, canvas.height,
+            0, 0, canvas.width, canvas.height,
+          );
+
+          const cropDataUrl = canvas.toDataURL('image/png');
+          const cropBase64 = cropDataUrl.split(',')[1];
+          zip.file(`${baseName}/images/page_${String(pageIdx + 1).padStart(3, '0')}_${el.category_type}_${idxStr}.png`, cropBase64, { base64: true });
+        }
+      }
+
+      exportElements.push(...pageElements.map((el) => ({ page: pageIdx + 1, ...el })));
+    }
+
+    const annotations = {
+      document_name: doc.name,
+      total_pages: pages.length,
+      elements: exportElements,
+    };
+    zip.file(`${baseName}/annotations.json`, JSON.stringify(annotations, null, 2));
+
+    let content: Blob;
+    try {
+      content = await zip.generateAsync({ type: 'blob' });
+    } catch (e: any) {
+      alert('导出失败：文件过大，无法生成 ZIP。请尝试减少页数。');
+      return;
+    }
+
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${baseName}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    if (failures.length > 0) {
+      alert(`导出部分失败：\n${failures.join('\n')}`);
+    }
+  } catch (e: any) {
+    alert('导出失败：' + (e.message || '未知错误'));
+  }
+}
 
 export function PdfListView() {
   const documents = useDocumentListStore((s) => s.documents);
@@ -46,6 +170,10 @@ export function PdfListView() {
   const triggerFileSelect = useCallback((docId: string, action: 'reparse' | 'load') => {
     pendingActionRef.current = { docId, action };
     setTimeout(() => fileInputRef.current?.click(), 0);
+  }, []);
+
+  const handleExport = useCallback(async (doc: PdfDocument) => {
+    await exportDocumentAsZip(doc);
   }, []);
 
   const stats = {
@@ -109,11 +237,21 @@ export function PdfListView() {
                 )}
 
                 {doc.status === 'parsing' && (
-                  <div className="spinner-mini" />
+                  <>
+                    <span className="status-badge" style={{ color: '#3B82F6' }}>
+                      {doc.parsedPageCount && doc.pageCount > 0
+                        ? `🔄 解析中 (${doc.parsedPageCount}/${doc.pageCount})`
+                        : '🔄 解析中'}
+                    </span>
+                    <div className="spinner-mini" />
+                  </>
                 )}
 
                 {doc.status === 'done' && (
-                  <button className="action-btn" onClick={(e) => { e.stopPropagation(); triggerFileSelect(doc.id, 'reparse'); }}>重新解析</button>
+                  <>
+                    <button className="action-btn" onClick={(e) => { e.stopPropagation(); handleExport(doc); }}>导出 ZIP</button>
+                    <button className="action-btn" onClick={(e) => { e.stopPropagation(); triggerFileSelect(doc.id, 'reparse'); }}>重新解析</button>
+                  </>
                 )}
 
                 {doc.status === 'error' && (

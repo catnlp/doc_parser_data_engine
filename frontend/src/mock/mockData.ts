@@ -174,7 +174,7 @@ export function loadMockData(): PdfInfo[] {
     },
   ];
 
-  const addIds = (elements: PdfInfo['pdf_info']): PdfInfo => ({
+  const addIds = (elements: Omit<PdfInfo['pdf_info'][number], 'id'>[]): PdfInfo => ({
     pdf_info: elements.map((e) => ({ ...e, id: uuid() })),
     page_info: { height: 1200, width: 850 },
   });

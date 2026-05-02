@@ -12,7 +12,11 @@ export type ElementType =
   | 'table_caption'
   | 'figure'
   | 'figure_caption'
-  | 'equation';
+  | 'equation'
+  | 'formula'
+  | 'display_formula'
+  | 'image'
+  | 'image_caption';
 
 export interface BBox {
   poly: number[]; // 8点坐标 [x1,y1,x2,y2,x3,y3,x4,y4]

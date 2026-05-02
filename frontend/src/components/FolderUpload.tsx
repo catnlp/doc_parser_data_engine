@@ -83,7 +83,7 @@ export function FolderUpload({ onFilesSelected }: FolderUploadProps) {
       <input
         ref={folderInputRef}
         type="file"
-        {...({ webkitdirectory: '' } as any)}
+        {...({ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement> & { webkitdirectory?: string })}
         accept=".pdf"
         onChange={handleFolderChange}
         className="hidden-input"

@@ -5,7 +5,7 @@ export interface ParsedPageData {
   width: number;
   height: number;
   layoutElements: Array<{ category_type: string; poly: number[]; order: number; score: number }>;
-  ocrElements: Array<{ category_type: string; text: string; poly: number[] }>;
+  ocrElements: Array<{ category_type: string; text: string; poly: number[]; latex?: string; html?: string }>;
 }
 
 export interface PdfDocument {
@@ -16,4 +16,5 @@ export interface PdfDocument {
   status: DocumentStatus;
   parsedData: ParsedPageData[];
   error: string | null;
+  parsedPageCount: number;
 }

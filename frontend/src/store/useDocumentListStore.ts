@@ -1,18 +1,14 @@
 import { create } from 'zustand';
 import type { PdfDocument, DocumentStatus, ParsedPageData } from '../types/document';
+import { saveImage, deleteDocImages } from '../utils/idb';
+import type { PersistedDocMeta } from '../types/storage';
 
 export type AppView = 'list' | 'annotate';
 
 const STORAGE_KEY = 'parsedDocuments_v1';
-const MAX_STORAGE_BYTES = 4 * 1024 * 1024; // 4MB safety margin under 5MB
 
-interface PersistedDoc {
-  name: string;
-  pageCount: number;
-  status: DocumentStatus;
+interface PersistedDoc extends PersistedDocMeta {
   parsedData: ParsedPageData[];
-  error: string | null;
-  savedAt: number;
 }
 
 function toPersisted(doc: PdfDocument): PersistedDoc {
@@ -20,8 +16,9 @@ function toPersisted(doc: PdfDocument): PersistedDoc {
     name: doc.name,
     pageCount: doc.pageCount,
     status: doc.status,
-    parsedData: doc.parsedData,
+    parsedData: doc.parsedData.map(({ imageBase64, ...rest }) => rest) as unknown as ParsedPageData[],
     error: doc.error,
+    parsedPageCount: doc.parsedData.length,
     savedAt: Date.now(),
   };
 }
@@ -35,6 +32,7 @@ function fromPersisted(p: PersistedDoc, id: string): PdfDocument {
     status: 'saved',
     parsedData: p.parsedData,
     error: p.error,
+    parsedPageCount: p.parsedPageCount ?? p.parsedData.length,
   };
 }
 
@@ -50,24 +48,9 @@ function loadPersisted(): PersistedDoc[] {
 
 function savePersisted(docs: PersistedDoc[]) {
   try {
-    const json = JSON.stringify(docs);
-    if (json.length > MAX_STORAGE_BYTES) {
-      const trimmed = docs.slice(Math.max(0, docs.length - Math.floor(docs.length * 0.7)));
-      const retry = JSON.stringify(trimmed);
-      if (retry.length <= MAX_STORAGE_BYTES) {
-        localStorage.setItem(STORAGE_KEY, retry);
-      }
-    } else {
-      localStorage.setItem(STORAGE_KEY, json);
-    }
-  } catch {
-    const trimmed = docs.slice(Math.max(0, docs.length - Math.floor(docs.length * 0.7)));
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
-    } catch {
-      // still failing — clear all
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
+  } catch (e) {
+    console.warn('Failed to save to localStorage:', e);
   }
 }
 
@@ -118,8 +101,13 @@ export const useDocumentListStore = create<DocumentListStore>((set, get) => ({
   loadFromLocalStorage: () => {
     const persisted = loadPersisted();
     if (persisted.length === 0) return;
-    const savedDocs: PdfDocument[] = persisted.map((p) => fromPersisted(p, Math.random().toString(36).slice(2, 9)));
-    set((state) => ({ documents: [...savedDocs, ...state.documents] }));
+    set((state) => {
+      const existingNames = new Set(state.documents.map((d) => d.name));
+      const savedDocs: PdfDocument[] = persisted
+        .filter((p) => !existingNames.has(p.name))
+        .map((p) => fromPersisted(p, Math.random().toString(36).slice(2, 9)));
+      return { documents: [...state.documents, ...savedDocs] };
+    });
   },
 
   addDocuments: (files: File[]) =>
@@ -137,6 +125,7 @@ export const useDocumentListStore = create<DocumentListStore>((set, get) => ({
           status: 'pending',
           parsedData: [],
           error: null,
+          parsedPageCount: 0,
         }));
 
       const existingDocs: PdfDocument[] = files
@@ -163,7 +152,7 @@ export const useDocumentListStore = create<DocumentListStore>((set, get) => ({
           ? {
               ...doc,
               status,
-              ...(parsedData !== undefined ? { parsedData } : {}),
+              ...(parsedData !== undefined ? { parsedData, parsedPageCount: parsedData.length } : {}),
               ...(error !== undefined ? { error } : {}),
             }
           : doc,
@@ -172,6 +161,13 @@ export const useDocumentListStore = create<DocumentListStore>((set, get) => ({
       // Persist if done
       const updatedDoc = docs.find((d) => d.id === id);
       if (updatedDoc && status === 'done' && updatedDoc.parsedData.length > 0) {
+        for (let i = 0; i < updatedDoc.parsedData.length; i++) {
+          const page = updatedDoc.parsedData[i];
+          if (page.imageBase64) {
+            saveImage(updatedDoc.id, i, page.imageBase64, page.width, page.height)
+              .catch(err => console.warn('Failed to save image to IndexedDB:', err));
+          }
+        }
         const allDocs = loadPersisted().filter((d) => d.name !== updatedDoc.name);
         allDocs.push(toPersisted(updatedDoc));
         savePersisted(allDocs);
@@ -191,7 +187,7 @@ export const useDocumentListStore = create<DocumentListStore>((set, get) => ({
     set((state) => ({
       documents: state.documents.map((d) =>
         d.id === id
-          ? { ...d, file, status: 'pending' as DocumentStatus, error: null, parsedData: [] }
+          ? { ...d, file, status: 'pending' as DocumentStatus, error: null, parsedData: [], parsedPageCount: 0 }
           : d,
       ),
     }));
@@ -227,6 +223,7 @@ export const useDocumentListStore = create<DocumentListStore>((set, get) => ({
     set((state) => {
       const doc = state.documents.find((d) => d.id === id);
       if (doc) removePersisted(doc.name);
+      deleteDocImages(id).catch(err => console.warn('Failed to delete images from IndexedDB:', err));
       return {
         documents: state.documents.filter((doc) => doc.id !== id),
         selectedDocumentId: state.selectedDocumentId === id ? null : state.selectedDocumentId,

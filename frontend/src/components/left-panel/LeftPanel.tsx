@@ -22,7 +22,7 @@ function polyToBBox(poly: number[]) {
   return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
 }
 
-export function LeftPanel({ pdfFile, pageNumber, pageInfo, renderedImage }: LeftPanelProps) {
+export function LeftPanel({ pageNumber, pageInfo, renderedImage }: LeftPanelProps) {
   const selectedElementId = useAnnotationStore((s) => s.selectedElementId);
   const toolMode = useAnnotationStore((s) => s.toolMode);
   const zoom = useAnnotationStore((s) => s.zoom);

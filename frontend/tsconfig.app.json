@@ -22,7 +22,12 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitAny": true,
-    "strictNullChecks": true
+    "strictNullChecks": true,
+
+    /* Path Aliases */
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["src"]
 }

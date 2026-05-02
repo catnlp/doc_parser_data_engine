@@ -1,6 +1,10 @@
 import { API_CONFIG } from './config';
 import type { PageInfo, PdfElement } from '../types/omnidoc';
 
+export interface OcrResponse {
+  elements: Array<{ category_type: string; text: string; poly: number[] }>;
+}
+
 export interface LayoutResult {
   pageInfo: PageInfo;
   elements: Array<{
@@ -30,9 +34,9 @@ async function postJson<T>(url: string, body: unknown, timeout = 30000): Promise
     clearTimeout(timer);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
     return (await resp.json()) as T;
-  } catch (e: any) {
+  } catch (e: unknown) {
     clearTimeout(timer);
-    if (e.name === 'AbortError') throw new Error('API 请求超时');
+    if (e instanceof Error && e.name === 'AbortError') throw new Error('API 请求超时');
     throw e;
   }
 }
@@ -95,7 +99,7 @@ export async function callOcrModel(
         category_type: el.category_type as PdfElement['category_type'],
         poly: layoutEl?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
         order: i,
-        latex: el.category_type === 'equation' ? el.text : '',
+        latex: (el.category_type === 'equation' || el.category_type === 'formula' || el.category_type === 'display_formula') ? el.text : '',
         html: el.category_type === 'table' ? el.text : '',
         markdown: el.text || '',
         image_path: '',
