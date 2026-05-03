@@ -9,12 +9,6 @@ export const API_CONFIG = {
     endpoint: '/api/parse',
     timeout: 60000,
   },
-  remoteOcr: {
-    url: import.meta.env.VITE_REMOTE_OCR_API_URL || 'http://192.168.3.10:8899',
-    endpoint: '/ocr/file',
-    timeout: 60000,
-    enabled: import.meta.env.VITE_USE_REMOTE_OCR !== 'false',
-  },
   formulaApi: {
     url: import.meta.env.VITE_FORMULA_API_URL || 'http://192.168.3.10:8899',
     endpoint: '/formula/file',

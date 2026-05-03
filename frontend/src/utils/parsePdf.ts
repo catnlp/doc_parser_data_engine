@@ -282,7 +282,15 @@ export async function parsePdfDocument(docId: string): Promise<void> {
         }
 
         // Merge results, maintaining original layout order
-        const ocrElements: Array<{ category_type: string; text: string; latex?: string; html?: string; poly: number[] } | null> = new Array(layoutBboxes.length);
+        interface OcrElement {
+          category_type: string;
+          text: string;
+          poly: number[];
+          latex?: string;
+          html?: string;
+          demoted?: boolean;
+        }
+        const ocrElements: Array<OcrElement | null> = new Array(layoutBboxes.length);
 
         // Fill in formula results
         for (const r of eqResults) {
@@ -321,6 +329,7 @@ export async function parsePdfDocument(docId: string): Promise<void> {
               ocrElements[i] = {
                 category_type: 'text',
                 text,
+                demoted: true,
                 latex: '',
                 poly: layoutResult.elements[i]?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
               };
@@ -328,6 +337,7 @@ export async function parsePdfDocument(docId: string): Promise<void> {
               ocrElements[i] = {
                 category_type: 'text',
                 text: '',
+                demoted: true,
                 latex: '',
                 poly: layoutResult.elements[i]?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
               };
@@ -365,7 +375,7 @@ export async function parsePdfDocument(docId: string): Promise<void> {
           width: pageInfo.width,
           height: pageInfo.height,
           layoutElements: layoutResult.elements,
-          ocrElements: ocrElements.filter((el): el is { category_type: string; text: string; latex?: string; html?: string; poly: number[] } => !!el),
+          ocrElements: ocrElements.filter((el): el is OcrElement => !!el),
         };
 
         const completedData = parsedData.filter((d): d is ParsedPageData => !!d);

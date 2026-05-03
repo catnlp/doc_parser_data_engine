@@ -5,7 +5,7 @@ export interface ParsedPageData {
   width: number;
   height: number;
   layoutElements: Array<{ category_type: string; poly: number[]; order: number; score: number }>;
-  ocrElements: Array<{ category_type: string; text: string; poly: number[]; latex?: string; html?: string }>;
+  ocrElements: Array<{ category_type: string; text: string; poly: number[]; latex?: string; html?: string; demoted?: boolean }>;
 }
 
 export interface PdfDocument {

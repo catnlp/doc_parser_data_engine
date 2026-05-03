@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { useAnnotationStore } from '../store/useAnnotationStore';
 import { useDocumentListStore } from '../store/useDocumentListStore';
+import { parsePdfDocument } from '../utils/parsePdf';
 
 interface TopBarProps {
   onPageChange: (page: number) => void;
@@ -14,8 +15,9 @@ export function TopBar({ onPageChange, pdfFile, totalPages }: TopBarProps) {
   const toolMode = useAnnotationStore((s) => s.toolMode);
   const setZoom = useAnnotationStore((s) => s.setZoom);
   const setToolMode = useAnnotationStore((s) => s.setToolMode);
-  const loadDocumentFromApi = useAnnotationStore((s) => s.loadDocumentFromApi);
   const goBackToList = useDocumentListStore((s) => s.goBackToList);
+  const addDocuments = useDocumentListStore((s) => s.addDocuments);
+  const selectDocument = useDocumentListStore((s) => s.selectDocument);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleBack = () => {
@@ -24,9 +26,23 @@ export function TopBar({ onPageChange, pdfFile, totalPages }: TopBarProps) {
   };
 
   const handleReload = () => fileInputRef.current?.click();
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) loadDocumentFromApi(file);
+    if (!file) return;
+    if (e.target) e.target.value = '';
+
+    useAnnotationStore.getState().resetState();
+    goBackToList();
+    addDocuments([file]);
+
+    setTimeout(async () => {
+      const docs = useDocumentListStore.getState().documents;
+      const newDoc = docs.find((d) => d.name === file.name);
+      if (newDoc) {
+        await parsePdfDocument(newDoc.id);
+        selectDocument(newDoc.id);
+      }
+    }, 200);
   };
 
   const handlePrev = () => {

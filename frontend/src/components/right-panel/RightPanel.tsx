@@ -101,6 +101,7 @@ function ElementCard({
         <span className="order-badge">≡{element.order + 1}</span>
         <span className="type-icon">{TYPE_ICONS[element.category_type] || '📝'}</span>
         <span className="type-label">{element.category_type}</span>
+        {element.demoted && <span className="demoted-badge" title="公式未识别，已降级为文本显示">⚠️ 降级</span>}
         <button className="edit-btn" onClick={(e) => { e.stopPropagation(); onToggleEdit(); }} title="编辑">
           {isEditing ? '收起' : '编辑'}
         </button>

@@ -316,9 +316,17 @@ body {
 }
 
 .element-card .type-label {
+  text-transform: capitalize;
   font-size: 12px;
-  font-weight: 600;
-  color: #374151;
+  color: #666;
+}
+.demoted-badge {
+  font-size: 10px;
+  background: #fff3cd;
+  color: #856404;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
 }
 
 .element-card .content-display {

@@ -1,16 +1,8 @@
 import { create } from 'zustand';
 import type { PdfInfo, PageInfo, PdfElement } from '../types/omnidoc';
-import type { OcrResponse } from '../api/models';
-import { pdfjs } from 'react-pdf';
 
 export type ToolMode = 'select' | 'create';
 export type ApiStatus = 'idle' | 'calling_layout' | 'calling_ocr' | 'done' | 'loading' | 'error';
-
-interface LayoutResult {
-  page_info?: PageInfo;
-  pageInfo?: PageInfo;
-  elements: Array<{ category_type: string; poly: number[]; order: number; score: number }>;
-}
 
 interface RenderedPage {
   imageBase64: string;
@@ -39,7 +31,6 @@ interface AnnotationStore {
   apiError: string | null;
 
   loadDocument: (pages: PdfInfo[], pageInfo: PageInfo[], imagePath: string) => void;
-  loadDocumentFromApi: (file: File) => Promise<void>;
   resetState: () => void;
   setCurrentPage: (page: number) => void;
   setSelectedElementId: (id: string | null) => void;
@@ -58,10 +49,6 @@ interface AnnotationStore {
   isPageDirty: () => boolean;
   updateDraftContent: (content: string | null) => void;
   getNextOrder: () => number;
-}
-
-function canvasToImage(canvas: HTMLCanvasElement): string {
-  return canvas.toDataURL('image/png');
 }
 
 export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
@@ -96,107 +83,6 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
       apiStatus: 'done',
       apiError: null,
     }),
-
-  loadDocumentFromApi: async (file: File) => {
-    try {
-      set({ apiStatus: 'loading', apiError: null });
-      
-      const arrayBuffer = await file.arrayBuffer();
-      const loadingTask = pdfjs.getDocument(new Uint8Array(arrayBuffer));
-      const pdf = await loadingTask.promise;
-      
-      const page = await pdf.getPage(1);
-      const scale = 2.0;
-      const viewport = page.getViewport({ scale });
-      
-      const canvasEl = document.createElement('canvas');
-      canvasEl.width = viewport.width;
-      canvasEl.height = viewport.height;
-      const ctx = canvasEl.getContext('2d');
-      if (!ctx) throw new Error('Canvas context unavailable');
-      
-      // 强制填充白色背景，这是解决 "黑框" 最稳妥的方法
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
-
-      await (page as unknown as { render: (params: Record<string, unknown>) => { promise: Promise<void> } }).render({
-        canvasContext: ctx,
-        viewport,
-        isEvalSupported: false,
-        enableWebGL: false,
-        background: 'white',
-      }).promise;
-      
-      const imageBase64 = canvasToImage(canvasEl);
-      
-      set({
-        renderedPages: [{ imageBase64, width: viewport.width, height: viewport.height }],
-        apiStatus: 'calling_layout'
-      });
-
-      const { API_CONFIG } = await import('../api/config');
-      const cfg = API_CONFIG.layoutModel;
-
-      const resp = await fetch(`${cfg.url}${cfg.endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_base64: imageBase64 }),
-      });
-      
-      if (!resp.ok) throw new Error(`Layout API ${resp.status}`);
-      const layoutResult = (await resp.json()) as LayoutResult;
-      
-      const pageInfoObj = layoutResult.pageInfo || layoutResult.page_info || { width: viewport.width, height: viewport.height };
-
-      set({ apiStatus: 'calling_ocr' });
-
-      const ocrCfg = API_CONFIG.ocrModel;
-      
-      const ocrResp = await fetch(`${ocrCfg.url}${ocrCfg.endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image_base64: imageBase64,
-          layout_bboxes: layoutResult.elements.map((e) => ({
-            poly: e.poly,
-            category_type: e.category_type,
-          })),
-        }),
-      });
-      
-      if (!ocrResp.ok) {
-        throw new Error(`OCR API failed with status ${ocrResp.status}`);
-      }
-      
-      const ocrJson = await ocrResp.json() as OcrResponse;
-
-      const elements = (ocrJson.elements || []).map(
-        (el: { category_type: string; text: string }, i: number) => ({
-          id: `el_${i}_${Date.now()}`,
-          category_type: el.category_type as PdfElement['category_type'],
-          poly: layoutResult.elements[i]?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
-          order: i,
-          latex: (el.category_type === 'equation' || el.category_type === 'formula' || el.category_type === 'display_formula') ? el.text : '',
-          html: el.category_type === 'table' ? el.text : '',
-          markdown: el.text || '',
-          image_path: '',
-        }),
-      );
-
-      set({
-        pdfInfo: [{ pdf_info: elements, page_info: pageInfoObj }],
-        pageInfo: [pageInfoObj],
-        imagePath: file.name,
-        pdfFile: file,
-        totalPages: 1,
-        currentPage: 1,
-        apiStatus: 'done',
-      });
-    } catch (e: unknown) {
-      console.error('loadDocumentFromApi error:', e);
-      set({ apiStatus: 'error', apiError: e instanceof Error ? e.message : 'Unknown error' });
-    }
-  },
 
   resetState: () => set({
     currentPage: 1,
