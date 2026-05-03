@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -9,6 +9,69 @@ import { TypeSelector } from './TypeSelector';
 import { ContentEditor } from './ContentEditor';
 import { TYPE_ICONS } from '../../constants/elementTypes';
 import DOMPurify from 'dompurify';
+
+const cropCache = new Map<string, string>();
+
+function getCroppedImage(pageBase64: string, poly: number[]): string | null {
+  const key = `${pageBase64.slice(-40)}_${poly.join(',')}`;
+  if (cropCache.has(key)) return cropCache.get(key)!;
+  
+  if (poly.length < 8) return null;
+  const xs = [poly[0], poly[2], poly[4], poly[6]];
+  const ys = [poly[1], poly[3], poly[5], poly[7]];
+  const sx = Math.min(...xs);
+  const sy = Math.min(...ys);
+  const sw = Math.max(...xs) - sx;
+  const sh = Math.max(...ys) - sy;
+  if (sw <= 0 || sh <= 0) return null;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = sw;
+  canvas.height = sh;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  
+  const img = new Image();
+  img.src = pageBase64;
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  const dataUrl = canvas.toDataURL('image/png');
+  cropCache.set(key, dataUrl);
+  return dataUrl;
+}
+
+function CroppedFigure({ pageBase64, poly }: { pageBase64: string; poly: number[] }) {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [cropped, setCropped] = useState<string | null>(() => getCroppedImage(pageBase64, poly));
+
+  useEffect(() => {
+    if (cropped) return;
+    const img = new Image();
+    img.onload = () => {
+      const xs = [poly[0], poly[2], poly[4], poly[6]];
+      const ys = [poly[1], poly[3], poly[5], poly[7]];
+      const sx = Math.min(...xs);
+      const sy = Math.min(...ys);
+      const sw = Math.max(...xs) - sx;
+      const sh = Math.max(...ys) - sy;
+      if (sw <= 0 || sh <= 0) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = sw;
+      canvas.height = sh;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      const dataUrl = canvas.toDataURL('image/png');
+      cropCache.set(`${pageBase64.slice(-40)}_${poly.join(',')}`, dataUrl);
+      setCropped(dataUrl);
+    };
+    img.src = pageBase64;
+  }, []);
+
+  if (cropped) {
+    return <img src={cropped} alt="figure" style={{ maxWidth: '100%' }} />;
+  }
+  return <img ref={imgRef} src={pageBase64} alt="figure" style={{ maxWidth: '100%', opacity: 0.3 }} />;
+}
 import type { PdfElement, ElementType } from '../../types/omnidoc';
 
 export function RightPanel() {
@@ -28,8 +91,19 @@ function ElementList() {
   const setSelectedElementId = useAnnotationStore((s) => s.setSelectedElementId);
   const setHoveredElementId = useAnnotationStore((s) => s.setHoveredElementId);
   const reorderElements = useAnnotationStore((s) => s.reorderElements);
+  const [searchText, setSearchText] = useState('');
+  const [filterType, setFilterType] = useState('');
 
   const sorted = [...elements].sort((a, b) => a.order - b.order);
+  const filtered = sorted.filter((el) => {
+    if (filterType && el.category_type !== filterType) return false;
+    if (searchText) {
+      const text = el.markdown || el.latex || el.html || '';
+      if (!text.toLowerCase().includes(searchText.toLowerCase())) return false;
+    }
+    return true;
+  });
+  const types = [...new Set(elements.map((e) => e.category_type))].sort();
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     e.dataTransfer.setData('text/plain', index.toString());
@@ -43,7 +117,29 @@ function ElementList() {
 
   return (
     <div className="element-list">
-      {sorted.map((el, idx) => (
+      <div className="element-filters">
+        <input
+          type="text"
+          className="filter-search"
+          placeholder="搜索内容..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+        />
+        <select
+          className="filter-type"
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+        >
+          <option value="">全部类型</option>
+          {types.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+        {filtered.length !== elements.length && (
+          <span className="filter-count">{filtered.length}/{elements.length}</span>
+        )}
+      </div>
+      {filtered.map((el, idx) => (
         <ElementCard
           key={el.id}
           element={el}
@@ -205,29 +301,11 @@ function RenderedContent({ element }: { element: PdfElement }) {
   if (element.category_type === 'figure' || element.category_type === 'image') {
     const renderedPage = renderedPages[currentPage - 1];
     if (renderedPage?.imageBase64 && element.poly.length >= 8) {
-      const xs = [element.poly[0], element.poly[2], element.poly[4], element.poly[6]];
-      const ys = [element.poly[1], element.poly[3], element.poly[5], element.poly[7]];
-      const sx = Math.min(...xs);
-      const sy = Math.min(...ys);
-      const sw = Math.max(...xs) - sx;
-      const sh = Math.max(...ys) - sy;
-      if (sw > 0 && sh > 0) {
-        return (
-          <div style={{ textAlign: 'center', position: 'relative' }}>
-            <img
-              src={renderedPage.imageBase64}
-              alt="figure"
-              style={{
-                maxWidth: '100%',
-                objectFit: 'none',
-                objectPosition: `${-sx}px ${-sy}px`,
-                width: `${sw}px`,
-                height: `${sh}px`,
-              }}
-            />
-          </div>
-        );
-      }
+      return (
+        <div style={{ textAlign: 'center' }}>
+          <CroppedFigure pageBase64={renderedPage.imageBase64} poly={element.poly} />
+        </div>
+      );
     }
     return <span style={{ color: '#999' }}>[未解析]</span>;
   }

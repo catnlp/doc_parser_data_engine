@@ -246,8 +246,35 @@ body {
 .element-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  padding: 8px;
 }
+
+.element-filters {
+  display: flex;
+  gap: 6px;
+  padding: 4px 0 8px;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 4px;
+}
+.filter-search {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+}
+.filter-search:focus { border-color: #1890ff; }
+.filter-type {
+  padding: 4px 4px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+  max-width: 100px;
+}
+.filter-count { font-size: 11px; color: #999; white-space: nowrap; }
 
 .element-card {
   padding: 10px 12px;
