@@ -12,6 +12,7 @@ function App() {
 
   useEffect(() => {
     loadFromLocalStorage();
+    useDocumentListStore.getState().restoreFromIndexedDB();
   }, [loadFromLocalStorage]);
 
   const appView = useDocumentListStore((s) => s.appView);

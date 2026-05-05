@@ -1,11 +1,15 @@
 import { create } from 'zustand';
 import type { PdfDocument, DocumentStatus, ParsedPageData } from '../types/document';
-import { saveImage, deleteDocImages } from '../utils/idb';
+import { saveImage, getDocImages, deleteDocImages } from '../utils/idb';
 import type { PersistedDocMeta } from '../types/storage';
 
 export type AppView = 'list' | 'annotate';
 
 const STORAGE_KEY = 'parsedDocuments_v1';
+
+function imageKey(docName: string): string {
+  return `persisted_${docName}`;
+}
 
 interface PersistedDoc extends PersistedDocMeta {
   parsedData: ParsedPageData[];
@@ -65,6 +69,7 @@ interface DocumentListStore {
   appView: AppView;
   selectedDocument: PdfDocument | null;
   hasParsingDocuments: boolean;
+  imagesRestored: boolean;
 
   addDocuments: (files: File[]) => void;
   setPageCount: (id: string, pageCount: number) => void;
@@ -77,6 +82,7 @@ interface DocumentListStore {
   loadFromLocalStorage: () => void;
   reparseDocument: (id: string, file: File) => void;
   loadSavedDocument: (id: string, file: File) => void;
+  restoreFromIndexedDB: () => Promise<void>;
 }
 
 function generateId(): string {
@@ -87,6 +93,7 @@ export const useDocumentListStore = create<DocumentListStore>((set, get) => ({
   documents: [],
   selectedDocumentId: null,
   appView: 'list',
+  imagesRestored: false,
 
   get selectedDocument(): PdfDocument | null {
     const { documents, selectedDocumentId } = get();
@@ -161,10 +168,11 @@ export const useDocumentListStore = create<DocumentListStore>((set, get) => ({
       // Persist if done
       const updatedDoc = docs.find((d) => d.id === id);
       if (updatedDoc && status === 'done' && updatedDoc.parsedData.length > 0) {
+        const key = imageKey(updatedDoc.name);
         for (let i = 0; i < updatedDoc.parsedData.length; i++) {
           const page = updatedDoc.parsedData[i];
           if (page.imageBase64) {
-            saveImage(updatedDoc.id, i, page.imageBase64, page.width, page.height)
+            saveImage(key, i, page.imageBase64, page.width, page.height)
               .catch(err => console.warn('Failed to save image to IndexedDB:', err));
           }
         }
@@ -222,11 +230,42 @@ export const useDocumentListStore = create<DocumentListStore>((set, get) => ({
   removeDocument: (id) =>
     set((state) => {
       const doc = state.documents.find((d) => d.id === id);
-      if (doc) removePersisted(doc.name);
-      deleteDocImages(id).catch(err => console.warn('Failed to delete images from IndexedDB:', err));
+      if (doc) {
+        removePersisted(doc.name);
+        deleteDocImages(imageKey(doc.name)).catch(err => console.warn('Failed to delete images from IndexedDB:', err));
+      }
       return {
         documents: state.documents.filter((doc) => doc.id !== id),
         selectedDocumentId: state.selectedDocumentId === id ? null : state.selectedDocumentId,
       };
     }),
+
+  restoreFromIndexedDB: async () => {
+    const savedDocs = get().documents.filter((d) => d.status === 'saved');
+
+    for (const doc of savedDocs) {
+      const pages = doc.parsedData;
+      if (pages.length === 0 || pages[0]?.imageBase64) continue;
+
+      const key = imageKey(doc.name);
+      const images = await getDocImages(key);
+      if (!images || images.size === 0) continue;
+
+      const restored = pages.map((page, idx) => {
+        const stored = images.get(idx);
+        if (stored?.imageBase64) {
+          return { ...page, imageBase64: stored.imageBase64 };
+        }
+        return page;
+      });
+
+      set((state) => ({
+        documents: state.documents.map((d) =>
+          d.id === doc.id ? { ...d, parsedData: restored } : d,
+        ),
+      }));
+    }
+
+    set({ imagesRestored: true });
+  },
 }));

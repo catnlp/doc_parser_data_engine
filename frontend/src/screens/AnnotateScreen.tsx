@@ -11,6 +11,7 @@ import type { PdfElement } from '../types/omnidoc';
 
 export default function AnnotateScreen() {
   const selectedDocumentId = useDocumentListStore((s) => s.selectedDocumentId);
+  const imagesRestored = useDocumentListStore((s) => s.imagesRestored);
   const pdfFile = useAnnotationStore((s) => s.pdfFile);
 
   const currentPage = useAnnotationStore((s) => s.currentPage);
@@ -78,6 +79,15 @@ export default function AnnotateScreen() {
   const renderedPage = renderedPages[currentPage - 1];
 
   if (!currentPageData || !currentPageInfo) return null;
+
+  const hasSavedDocs = useDocumentListStore.getState().documents.some((d) => d.status === 'saved');
+  if (!imagesRestored && hasSavedDocs) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#666' }}>
+        加载中...
+      </div>
+    );
+  }
 
   return (
     <div className="annotation-app">

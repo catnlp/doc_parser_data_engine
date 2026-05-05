@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -12,65 +12,45 @@ import DOMPurify from 'dompurify';
 
 const cropCache = new Map<string, string>();
 
-function getCroppedImage(pageBase64: string, poly: number[]): string | null {
-  const key = `${pageBase64.slice(-40)}_${poly.join(',')}`;
-  if (cropCache.has(key)) return cropCache.get(key)!;
-  
-  if (poly.length < 8) return null;
-  const xs = [poly[0], poly[2], poly[4], poly[6]];
-  const ys = [poly[1], poly[3], poly[5], poly[7]];
-  const sx = Math.min(...xs);
-  const sy = Math.min(...ys);
-  const sw = Math.max(...xs) - sx;
-  const sh = Math.max(...ys) - sy;
-  if (sw <= 0 || sh <= 0) return null;
-
-  const canvas = document.createElement('canvas');
-  canvas.width = sw;
-  canvas.height = sh;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-  
-  const img = new Image();
-  img.src = pageBase64;
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-  const dataUrl = canvas.toDataURL('image/png');
-  cropCache.set(key, dataUrl);
-  return dataUrl;
-}
-
 function CroppedFigure({ pageBase64, poly }: { pageBase64: string; poly: number[] }) {
-  const imgRef = useRef<HTMLImageElement>(null);
-  const [cropped, setCropped] = useState<string | null>(() => getCroppedImage(pageBase64, poly));
+  const [cropped, setCropped] = useState<string | null>(null);
 
   useEffect(() => {
-    if (cropped) return;
+    const key = `${pageBase64.slice(-40)}_${poly.join(',')}`;
+    if (cropCache.has(key)) {
+      setCropped(cropCache.get(key)!);
+      return;
+    }
+
+    if (poly.length < 8) return;
+    const xs = [poly[0], poly[2], poly[4], poly[6]];
+    const ys = [poly[1], poly[3], poly[5], poly[7]];
+    const sx = Math.min(...xs);
+    const sy = Math.min(...ys);
+    const sw = Math.max(...xs) - sx;
+    const sh = Math.max(...ys) - sy;
+    if (sw <= 0 || sh <= 0) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = sw;
+    canvas.height = sh;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
     const img = new Image();
     img.onload = () => {
-      const xs = [poly[0], poly[2], poly[4], poly[6]];
-      const ys = [poly[1], poly[3], poly[5], poly[7]];
-      const sx = Math.min(...xs);
-      const sy = Math.min(...ys);
-      const sw = Math.max(...xs) - sx;
-      const sh = Math.max(...ys) - sy;
-      if (sw <= 0 || sh <= 0) return;
-      const canvas = document.createElement('canvas');
-      canvas.width = sw;
-      canvas.height = sh;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
       ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
       const dataUrl = canvas.toDataURL('image/png');
-      cropCache.set(`${pageBase64.slice(-40)}_${poly.join(',')}`, dataUrl);
+      cropCache.set(key, dataUrl);
       setCropped(dataUrl);
     };
     img.src = pageBase64;
-  }, []);
+  }, [pageBase64, poly]);
 
   if (cropped) {
     return <img src={cropped} alt="figure" style={{ maxWidth: '100%' }} />;
   }
-  return <img ref={imgRef} src={pageBase64} alt="figure" style={{ maxWidth: '100%', opacity: 0.3 }} />;
+  return <div style={{ height: 40, background: '#f0f0f0', borderRadius: 4 }} />;
 }
 import type { PdfElement, ElementType } from '../../types/omnidoc';
 
