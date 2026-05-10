@@ -1,12 +1,53 @@
+# Dependencies
 node_modules/
 .venv/
+backend/.venv/
+
+# Build output
 dist/
 build/
-*.log
+.vite/
+frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
-.playwright-mcp/
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Test artifacts
 initial-screen.png
 test*.png
+
+# Cache
 .cache/
 *.tsbuildinfo
+
+# Coverage
 coverage/
+
+# Playwright
+.playwright-mcp/
+
+# OpenCode
+.opencode/
