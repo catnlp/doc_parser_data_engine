@@ -27,7 +27,7 @@ export default function AnnotateScreen() {
     if (!doc) return;
 
     loadDocument(doc);
-  }, [selectedDocumentId]);
+  }, [selectedDocumentId, imagesRestored]);
 
   const loadDocument = (doc: PdfDocument) => {
     const totalPages = doc.parsedData.length;

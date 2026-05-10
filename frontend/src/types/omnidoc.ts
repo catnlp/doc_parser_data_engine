@@ -16,10 +16,11 @@ export type ElementType =
   | 'formula'
   | 'display_formula'
   | 'image'
-  | 'image_caption';
+  | 'image_caption'
+  | 'chart';
 
 export interface BBox {
-  poly: number[]; // 8点坐标 [x1,y1,x2,y2,x3,y3,x4,y4]
+  poly: number[]; // bbox [left, top, right, bottom]
 }
 
 export interface PageInfo {
@@ -30,7 +31,7 @@ export interface PageInfo {
 export interface PdfElement {
   id: string; // 前端生成的唯一标识
   category_type: ElementType;
-  poly: number[]; // [x1,y1,x2,y2,x3,y3,x4,y4]
+  poly: number[]; // [left, top, right, bottom]
   order: number;
   latex: string;
   html: string;

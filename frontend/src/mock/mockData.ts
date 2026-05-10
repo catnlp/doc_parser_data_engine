@@ -6,7 +6,7 @@ export function loadMockData(): PdfInfo[] {
   const page1Elements = [
     {
       category_type: 'title' as const,
-      poly: [50, 30, 800, 30, 800, 80, 50, 80],
+      poly: [50, 30, 800, 80],
       order: 0,
       latex: '',
       html: '',
@@ -15,7 +15,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'text' as const,
-      poly: [50, 100, 800, 100, 800, 200, 50, 200],
+      poly: [50, 100, 800, 200],
       order: 1,
       latex: '',
       html: '',
@@ -24,7 +24,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'figure' as const,
-      poly: [50, 220, 380, 220, 380, 500, 50, 500],
+      poly: [50, 220, 380, 500],
       order: 2,
       latex: '',
       html: '',
@@ -33,7 +33,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'figure_caption' as const,
-      poly: [50, 510, 380, 510, 380, 550, 50, 550],
+      poly: [50, 510, 380, 550],
       order: 3,
       latex: '',
       html: '',
@@ -42,7 +42,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'table' as const,
-      poly: [400, 220, 800, 220, 800, 450, 400, 450],
+      poly: [400, 220, 800, 450],
       order: 4,
       latex: '',
       html: '<table>\n  <thead><tr><th>类型</th><th>数量</th><th>页数</th></tr></thead>\n  <tbody>\n    <tr><td>学术论文</td><td>2000万</td><td>5000万</td></tr>\n    <tr><td>金融文档</td><td>500万</td><td>500万</td></tr>\n    <tr><td>法律文档</td><td>300万</td><td>300万</td></tr>\n    <tr><td>政府报告</td><td>200万</td><td>100万</td></tr>\n    <tr><td>教材图书</td><td>500万</td><td>500万</td></tr>\n  </tbody>\n</table>',
@@ -51,7 +51,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'equation' as const,
-      poly: [200, 580, 650, 580, 650, 650, 200, 650],
+      poly: [200, 580, 650, 650],
       order: 5,
       latex: '$$F_{1} = \\frac{{TP}}{{TP + FP}}, \\quad F_{0.5} = (1 + 0.5^2) \\cdot \\frac{{Precision \\cdot Recall}}{{0.5^2 \\cdot Precision + Recall}}$$',
       html: '',
@@ -60,7 +60,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'text' as const,
-      poly: [50, 680, 800, 680, 800, 900, 50, 900],
+      poly: [50, 680, 800, 900],
       order: 6,
       latex: '',
       html: '',
@@ -69,7 +69,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'header' as const,
-      poly: [50, 10, 800, 10, 800, 25, 50, 25],
+      poly: [50, 10, 800, 25],
       order: 7,
       latex: '',
       html: '',
@@ -78,7 +78,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'footer' as const,
-      poly: [50, 1170, 800, 1170, 800, 1190, 50, 1190],
+      poly: [50, 1170, 800, 1190],
       order: 8,
       latex: '',
       html: '',
@@ -90,7 +90,7 @@ export function loadMockData(): PdfInfo[] {
   const page2Elements = [
     {
       category_type: 'text' as const,
-      poly: [50, 30, 800, 30, 800, 150, 50, 150],
+      poly: [50, 30, 800, 150],
       order: 0,
       latex: '',
       html: '',
@@ -99,7 +99,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'equation' as const,
-      poly: [150, 180, 700, 180, 700, 250, 150, 250],
+      poly: [150, 180, 700, 250],
       order: 1,
       latex: '$$D = \\sum_{{i=1}}^{{n}} {{w_i}} \\cdot d_i(x, y)$$',
       html: '',
@@ -108,7 +108,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'table' as const,
-      poly: [50, 280, 800, 280, 800, 500, 50, 500],
+      poly: [50, 280, 800, 500],
       order: 2,
       latex: '',
       html: '<table>\n  <thead><tr><th>难度等级</th><th>置信度区间</th><th>处理方式</th></tr></thead>\n  <tbody>\n    <tr><td>简单</td><td>c > 0.97</td><td>无信息量，可降采样</td></tr>\n    <tr><td>中等（甜区）</td><td>0.95-0.97</td><td>最优训练样本，优先保留</td></tr>\n    <tr><td>偏难</td><td>0.90-0.95</td><td>保留，需验证标注</td></tr>\n    <tr><td>困难</td><td>c < 0.90</td><td>需人工介入或精炼</td></tr>\n  </tbody>\n</table>',
@@ -117,7 +117,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'text' as const,
-      poly: [50, 530, 800, 530, 800, 750, 50, 750],
+      poly: [50, 530, 800, 750],
       order: 3,
       latex: '',
       html: '',
@@ -126,7 +126,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'figure' as const,
-      poly: [50, 780, 800, 780, 800, 1100, 50, 1100],
+      poly: [50, 780, 800, 1100],
       order: 4,
       latex: '',
       html: '',
@@ -138,7 +138,7 @@ export function loadMockData(): PdfInfo[] {
   const page3Elements = [
     {
       category_type: 'text' as const,
-      poly: [50, 30, 800, 30, 800, 250, 50, 250],
+      poly: [50, 30, 800, 250],
       order: 0,
       latex: '',
       html: '',
@@ -147,7 +147,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'table' as const,
-      poly: [50, 280, 800, 280, 800, 500, 50, 500],
+      poly: [50, 280, 800, 500],
       order: 1,
       latex: '',
       html: '<table>\n  <thead><tr><th>元素类型</th><th>基础场景</th><th>长尾场景</th></tr></thead>\n  <tbody>\n    <tr><td>文本</td><td>单栏、多栏</td><td>竖排、艺术字、古籍</td></tr>\n    <tr><td>公式</td><td>行内公式</td><td>多行对齐、大括号、矩阵</td></tr>\n    <tr><td>表格</td><td>简单表格</td><td>嵌套表格、跨行跨列</td></tr>\n    <tr><td>图表</td><td>柱状图、饼图</td><td>流程图、架构图</td></tr>\n  </tbody>\n</table>',
@@ -156,7 +156,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'text' as const,
-      poly: [50, 530, 800, 530, 800, 700, 50, 700],
+      poly: [50, 530, 800, 700],
       order: 2,
       latex: '',
       html: '',
@@ -165,7 +165,7 @@ export function loadMockData(): PdfInfo[] {
     },
     {
       category_type: 'footer' as const,
-      poly: [50, 1170, 800, 1170, 800, 1190, 50, 1190],
+      poly: [50, 1170, 800, 1190],
       order: 3,
       latex: '',
       html: '',

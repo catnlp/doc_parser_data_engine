@@ -1,25 +1,22 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { useAnnotationStore } from '../../store/useAnnotationStore';
 import { BBOX_COLORS, TYPE_LABELS, TYPE_ICONS } from '../../constants/elementTypes';
+import { polyToSvgPoints, polyToBBox } from '../../utils/poly';
+
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  const full = h.length === 3 ? h[0]+h[0]+h[1]+h[1]+h[2]+h[2] : h;
+  const r = parseInt(full.substring(0, 2), 16);
+  const g = parseInt(full.substring(2, 4), 16);
+  const b = parseInt(full.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 interface LeftPanelProps {
   pdfFile: File | null;
   pageNumber: number;
   pageInfo: { width: number; height: number };
   renderedImage: string | null;
-}
-
-function polyToSvgPoints(poly: number[], scale: number): string {
-  return poly
-    .map((v) => (v * scale).toFixed(2))
-    .reduce((acc, val, i) => (i % 2 === 0 ? `${acc}${val},` : `${acc}${val} `), '')
-    .trim();
-}
-
-function polyToBBox(poly: number[]) {
-  const xs = poly.filter((_, i) => i % 2 === 0);
-  const ys = poly.filter((_, i) => i % 2 !== 0);
-  return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
 }
 
 export function LeftPanel({ pageNumber, pageInfo, renderedImage }: LeftPanelProps) {
@@ -54,6 +51,21 @@ export function LeftPanel({ pageNumber, pageInfo, renderedImage }: LeftPanelProp
     }
   }, [pageInfo.width, pageInfo.height, zoom]);
 
+  useEffect(() => {
+    if (!selectedElementId || !containerRef.current) return;
+    const el = elements.find(e => e.id === selectedElementId);
+    if (!el) return;
+    const bbox = polyToBBox(el.poly);
+    const centerX = (bbox.x + bbox.width / 2) * displayScale;
+    const centerY = (bbox.y + bbox.height / 2) * displayScale;
+    const container = containerRef.current;
+    container.scrollTo({
+      left: centerX - container.clientWidth / 2,
+      top: centerY - container.clientHeight / 2,
+      behavior: 'smooth',
+    });
+  }, [selectedElementId]);
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (toolMode !== 'create' || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
@@ -87,7 +99,7 @@ export function LeftPanel({ pageNumber, pageInfo, renderedImage }: LeftPanelProp
     const y = Math.min(creationStart.y, creationCurrent.y);
     const w = Math.abs(creationCurrent.x - creationStart.x);
     const h = Math.abs(creationCurrent.y - creationStart.y);
-    const poly = [x, y, x + w, y, x + w, y + h, x, y + h].map(v => v / displayScale);
+    const poly = [x / displayScale, y / displayScale, (x + w) / displayScale, (y + h) / displayScale];
     const getNextOrder = useAnnotationStore.getState().getNextOrder;
     useAnnotationStore.getState().addElement({
       id: Math.random().toString(36).slice(2, 10),
@@ -144,9 +156,9 @@ export function LeftPanel({ pageNumber, pageInfo, renderedImage }: LeftPanelProp
               const bbox = polyToBBox(el.poly);
               const isSelected = el.id === selectedElementId;
               const isHovered = el.id === hoveredElementId;
-              const bx = bbox.minX * displayScale;
-              const by = bbox.minY * displayScale;
-              const fillColor = isSelected ? `${color}30` : isHovered ? `${color}15` : 'transparent';
+              const bx = bbox.x * displayScale;
+              const by = bbox.y * displayScale;
+              const fillColor = isSelected ? hexToRgba(color, 0.19) : isHovered ? hexToRgba(color, 0.08) : 'transparent';
               return (
                 <g key={el.id}>
                   <polygon

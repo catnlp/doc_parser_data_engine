@@ -1,14 +1,14 @@
 export const BBOX_COLORS = {
-  text: '#33B1FF',
+  text: '#3B82F6',
   title: '#1890FF',
   header: '#A6A6A6',
   footer: '#A6A6A6',
   table: '#52C41A',
   table_caption: '#95DE64',
-  figure: '#FA8C16',
+  figure: '#F59E0B',
   figure_caption: '#FFC069',
   figure_title: '#FFC069',
-  equation: '#722ED1',
+  equation: '#8B5CF6',
   display_formula: '#722ED1',
   doc_title: '#13C2C2',
   paragraph_title: '#13C2C2',
@@ -19,6 +19,7 @@ export const BBOX_COLORS = {
   formula: '#722ED1',
   image: '#FA8C16',
   image_caption: '#FFC069',
+  chart: '#722ED1',
   number: '#D9D9D9',
   page_number: '#D9D9D9',
   page_footnote: '#D9D9D9',
@@ -54,6 +55,7 @@ export const TYPE_LABELS: Record<string, string> = {
   droped_text: 'Dropped Text',
   code_txt: 'Code',
   code_txt_caption: 'Code Caption',
+  chart: 'Chart',
 } as const;
 
 export const TYPE_ICONS: Record<string, string> = {
@@ -83,6 +85,7 @@ export const TYPE_ICONS: Record<string, string> = {
   droped_text: '📝',
   code_txt: '💻',
   code_txt_caption: '💻',
+  chart: '📊',
 } as const;
 
 export const ELEMENT_TYPES = [
@@ -102,4 +105,5 @@ export const ELEMENT_TYPES = [
   'number',
   'page_number',
   'page_footnote',
+  'chart',
 ] as const;

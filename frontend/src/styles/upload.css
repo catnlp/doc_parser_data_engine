@@ -6,20 +6,19 @@
   justify-content: center;
   min-height: 400px;
   padding: 40px;
-  background: #fff;
-  border: 2px dashed #d0d0d0;
+  background: var(--color-bg-surface);
+  border: 2px dashed var(--color-border-hover);
   border-radius: 12px;
   transition: border-color 0.2s, background 0.2s;
-  cursor: pointer;
 }
 
 .upload-area:hover {
-  border-color: #3B82F6;
+  border-color: var(--color-primary);
   background: #f8fafc;
 }
 
 .upload-area.dragging {
-  border-color: #3B82F6;
+  border-color: var(--color-primary);
   background: #eff6ff;
   border-style: solid;
 }
@@ -41,13 +40,13 @@
 .upload-title {
   font-size: 20px;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
 .upload-description {
   font-size: 14px;
-  color: #6B7280;
+  color: var(--color-text-secondary);
   margin: 0;
   max-width: 320px;
 }
@@ -60,34 +59,33 @@
 
 .upload-btn {
   padding: 10px 20px;
-  border: 1px solid #d0d0d0;
-  border-radius: 8px;
+  border: 1px solid var(--color-border-hover);
+  border-radius: var(--radius-lg);
   font-size: 14px;
   font-weight: 500;
-  cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .upload-btn.primary {
-  background: #3B82F6;
-  color: #fff;
-  border-color: #3B82F6;
+  background: var(--color-primary);
+  color: var(--color-bg-surface);
+  border-color: var(--color-primary);
 }
 
 .upload-btn.primary:hover {
-  background: #2563EB;
-  border-color: #2563EB;
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 
 .upload-btn.secondary {
-  background: #fff;
-  color: #374151;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
 }
 
 .upload-btn.secondary:hover {
-  background: #f0f0f0;
-  border-color: #3B82F6;
-  color: #3B82F6;
+  background: var(--color-bg-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .hidden-input {

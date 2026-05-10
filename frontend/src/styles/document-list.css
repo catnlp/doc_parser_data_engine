@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f5f5f5;
+  background: var(--color-bg-page);
 }
 
 .pdf-list-view {
@@ -22,13 +22,13 @@
   align-items: center;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .list-header h2 {
   font-size: 18px;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-primary);
 }
 
 .list-stats {
@@ -39,20 +39,20 @@
 
 .list-stats span {
   padding: 2px 8px;
-  border-radius: 4px;
-  background: #f0f0f0;
-  color: #6B7280;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
 }
 
 .list-stats .stat-pending { background: #F1F5F9; color: #64748B; }
-.list-stats .stat-parsing { background: #DBEAFE; color: #3B82F6; }
-.list-stats .stat-done { background: #D1FAE5; color: #10B981; }
-.list-stats .stat-error { background: #FEE2E2; color: #EF4444; }
+.list-stats .stat-parsing { background: #DBEAFE; color: var(--color-primary); }
+.list-stats .stat-done { background: #D1FAE5; color: var(--color-success); }
+.list-stats .stat-error { background: #FEE2E2; color: var(--color-danger); }
 
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: #94A3B8;
+  color: var(--color-text-muted);
   font-size: 14px;
 }
 
@@ -67,9 +67,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -79,7 +79,7 @@
 
 .document-row.clickable:hover {
   background: #f0fdf4;
-  border-color: #10B981;
+  border-color: var(--color-success);
   box-shadow: 0 1px 4px rgba(16, 185, 129, 0.15);
 }
 
@@ -98,7 +98,7 @@
 .doc-name {
   font-size: 14px;
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -107,7 +107,7 @@
 
 .doc-pages {
   font-size: 12px;
-  color: #94A3B8;
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
@@ -125,7 +125,7 @@
 
 .error-msg {
   font-size: 11px;
-  color: #EF4444;
+  color: var(--color-danger);
   max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -136,7 +136,7 @@
   width: 16px;
   height: 16px;
   border: 2px solid #DBEAFE;
-  border-top-color: #3B82F6;
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -148,11 +148,10 @@
 .action-btn {
   padding: 2px 8px;
   border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: #fff;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-surface);
   font-size: 11px;
-  color: #374151;
-  cursor: pointer;
+  color: var(--color-text-primary);
   white-space: nowrap;
   transition: background 0.15s, border-color 0.15s;
 }
@@ -163,13 +162,13 @@
 }
 
 .action-btn.danger {
-  color: #dc2626;
+  color: var(--color-danger-hover);
   border-color: #fecaca;
 }
 
 .action-btn.danger:hover {
   background: #fef2f2;
-  border-color: #dc2626;
+  border-color: var(--color-danger-hover);
 }
 
 .list-stats .stat-saved { background: #FEF3C7; color: #D97706; }

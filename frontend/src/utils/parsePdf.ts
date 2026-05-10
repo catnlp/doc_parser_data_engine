@@ -22,15 +22,25 @@ async function cropImageFromBase64(
   pageWidth: number,
   pageHeight: number,
 ): Promise<string | null> {
-  if (poly.length < 8) return null;
-
-  const xs = [poly[0], poly[2], poly[4], poly[6]];
-  const ys = [poly[1], poly[3], poly[5], poly[7]];
+  let left: number, top: number, right: number, bottom: number;
+  if (poly.length >= 8) {
+    left   = Math.min(poly[0], poly[2], poly[4], poly[6]);
+    top    = Math.min(poly[1], poly[3], poly[5], poly[7]);
+    right  = Math.max(poly[0], poly[2], poly[4], poly[6]);
+    bottom = Math.max(poly[1], poly[3], poly[5], poly[7]);
+  } else if (poly.length >= 4) {
+    left   = poly[0];
+    top    = poly[1];
+    right  = poly[2];
+    bottom = poly[3];
+  } else {
+    return null;
+  }
   const CROP_MARGIN = 40;
-  const x1 = Math.max(0, Math.min(...xs) - CROP_MARGIN);
-  const y1 = Math.max(0, Math.min(...ys) - CROP_MARGIN);
-  const x2 = Math.min(pageWidth, Math.max(...xs) + CROP_MARGIN);
-  const y2 = Math.min(pageHeight, Math.max(...ys) + CROP_MARGIN);
+  const x1 = Math.max(0, left - CROP_MARGIN);
+  const y1 = Math.max(0, top - CROP_MARGIN);
+  const x2 = Math.min(pageWidth, right + CROP_MARGIN);
+  const y2 = Math.min(pageHeight, bottom + CROP_MARGIN);
   const cropW = x2 - x1;
   const cropH = y2 - y1;
 
@@ -292,6 +302,14 @@ export async function parsePdfDocument(docId: string): Promise<void> {
         }
         const ocrElements: Array<OcrElement | null> = new Array(layoutBboxes.length);
 
+        const toBBox = (p: number[]): number[] => {
+          if (p.length >= 8) {
+            return [Math.min(p[0],p[2],p[4],p[6]), Math.min(p[1],p[3],p[5],p[7]),
+                    Math.max(p[0],p[2],p[4],p[6]), Math.max(p[1],p[3],p[5],p[7])];
+          }
+          return p;
+        };
+
         // Fill in formula results
         for (const r of eqResults) {
           if (r !== null) {
@@ -299,7 +317,7 @@ export async function parsePdfDocument(docId: string): Promise<void> {
               category_type: r.category_type,
               text: r.text,
               latex: r.latex,
-              poly: layoutResult.elements[r.index]?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
+              poly: toBBox(layoutResult.elements[r.index]?.poly || [0, 0, 0, 0]),
             };
           }
         }
@@ -311,7 +329,7 @@ export async function parsePdfDocument(docId: string): Promise<void> {
               category_type: r.category_type,
               text: r.text,
               html: r.html,
-              poly: layoutResult.elements[r.index]?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
+              poly: toBBox(layoutResult.elements[r.index]?.poly || [0, 0, 0, 0]),
             };
           }
         }
@@ -331,7 +349,7 @@ export async function parsePdfDocument(docId: string): Promise<void> {
                 text,
                 demoted: true,
                 latex: '',
-                poly: layoutResult.elements[i]?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
+                poly: toBBox(layoutResult.elements[i]?.poly || [0, 0, 0, 0]),
               };
             } catch {
               ocrElements[i] = {
@@ -339,7 +357,7 @@ export async function parsePdfDocument(docId: string): Promise<void> {
                 text: '',
                 demoted: true,
                 latex: '',
-                poly: layoutResult.elements[i]?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
+                poly: toBBox(layoutResult.elements[i]?.poly || [0, 0, 0, 0]),
               };
             }
           } else if (bbox.category_type === 'table') {
@@ -351,21 +369,21 @@ export async function parsePdfDocument(docId: string): Promise<void> {
                 category_type: bbox.category_type,
                 text,
                 html: '',
-                poly: layoutResult.elements[i]?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
+                poly: toBBox(layoutResult.elements[i]?.poly || [0, 0, 0, 0]),
               };
             } catch {
               ocrElements[i] = {
                 category_type: bbox.category_type,
                 text: '',
                 html: '',
-                poly: layoutResult.elements[i]?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
+                poly: toBBox(layoutResult.elements[i]?.poly || [0, 0, 0, 0]),
               };
             }
           } else {
             ocrElements[i] = {
               category_type: bbox.category_type,
               text: regularElements[regularIdx++]?.text || '',
-              poly: layoutResult.elements[i]?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
+              poly: toBBox(layoutResult.elements[i]?.poly || [0, 0, 0, 0]),
             };
           }
         }

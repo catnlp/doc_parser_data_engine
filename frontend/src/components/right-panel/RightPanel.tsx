@@ -22,13 +22,11 @@ function CroppedFigure({ pageBase64, poly }: { pageBase64: string; poly: number[
       return;
     }
 
-    if (poly.length < 8) return;
-    const xs = [poly[0], poly[2], poly[4], poly[6]];
-    const ys = [poly[1], poly[3], poly[5], poly[7]];
-    const sx = Math.min(...xs);
-    const sy = Math.min(...ys);
-    const sw = Math.max(...xs) - sx;
-    const sh = Math.max(...ys) - sy;
+    if (poly.length < 4) return;
+    const sx = poly[0];
+    const sy = poly[1];
+    const sw = poly[2] - sx;
+    const sh = poly[3] - sy;
     if (sw <= 0 || sh <= 0) return;
 
     const canvas = document.createElement('canvas');
@@ -73,6 +71,12 @@ function ElementList() {
   const reorderElements = useAnnotationStore((s) => s.reorderElements);
   const [searchText, setSearchText] = useState('');
   const [filterType, setFilterType] = useState('');
+
+  useEffect(() => {
+    if (!selectedElementId) return;
+    const el = document.querySelector(`[data-element-id="${selectedElementId}"]`);
+    if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [selectedElementId]);
 
   const sorted = [...elements].sort((a, b) => a.order - b.order);
   const filtered = sorted.filter((el) => {
@@ -164,6 +168,7 @@ function ElementCard({
   return (
     <div
       className={`element-card ${isEditing ? 'editing' : ''} ${isHovered ? 'hovered' : ''}`}
+      data-element-id={element.id}
       onClick={onSelect}
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
@@ -278,9 +283,9 @@ function RenderedContent({ element }: { element: PdfElement }) {
       </Markdown>
     );
   }
-  if (element.category_type === 'figure' || element.category_type === 'image') {
+  if (element.category_type === 'figure' || element.category_type === 'image' || element.category_type === 'chart') {
     const renderedPage = renderedPages[currentPage - 1];
-    if (renderedPage?.imageBase64 && element.poly.length >= 8) {
+    if (renderedPage?.imageBase64 && element.poly.length >= 4) {
       return (
         <div style={{ textAlign: 'center' }}>
           <CroppedFigure pageBase64={renderedPage.imageBase64} poly={element.poly} />

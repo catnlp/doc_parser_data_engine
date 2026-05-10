@@ -68,8 +68,8 @@ export async function mockLayoutData(): Promise<LayoutResult> {
     return {
       pageInfo: { width: 500, height: 500 },
       elements: [
-        { category_type: 'text', poly: [50, 50, 450, 50, 450, 250, 50, 250], order: 0 },
-        { category_type: 'figure', poly: [50, 270, 450, 270, 450, 480, 50, 480], order: 1 }
+        { category_type: 'text', poly: [50, 50, 450, 250], order: 0 },
+        { category_type: 'figure', poly: [50, 270, 450, 480], order: 1 }
       ]
     };
 }
@@ -97,7 +97,7 @@ export async function callOcrModel(
       return {
         id: `el_${i}_${Date.now()}`,
         category_type: el.category_type as PdfElement['category_type'],
-        poly: layoutEl?.poly || [0, 0, 0, 0, 0, 0, 0, 0],
+        poly: layoutEl?.poly || [0, 0, 0, 0],
         order: i,
         latex: (el.category_type === 'equation' || el.category_type === 'formula' || el.category_type === 'display_formula') ? el.text : '',
         html: el.category_type === 'table' ? el.text : '',

@@ -2,6 +2,7 @@ import { useRef, useCallback } from 'react';
 import JSZip from 'jszip';
 import { useDocumentListStore } from '../store/useDocumentListStore';
 import { parsePdfDocument } from '../utils/parsePdf';
+import { importDocumentFromZip } from '../utils/importZip';
 import type { DocumentStatus, PdfDocument } from '../types/document';
 
 const STATUS_LABELS: Record<DocumentStatus, string> = {
@@ -33,36 +34,55 @@ async function exportDocumentAsZip(doc: PdfDocument) {
     const zip = new JSZip();
     const baseName = doc.name.replace(/\.pdf$/i, '');
     let figureIdx = 0;
-    const exportElements: Array<{ page: number; category_type: string; text: string; poly: number[] }> = [];
+    const exportPages: Array<{
+      page_number: number;
+      image_path: string;
+      page_info: { width: number; height: number };
+      elements: Array<Record<string, unknown>>;
+    }> = [];
 
     for (let pageIdx = 0; pageIdx < pages.length; pageIdx++) {
       const pageData = pages[pageIdx];
       if (!pageData) continue;
 
+      const imageName = `page_${String(pageIdx + 1).padStart(3, '0')}.png`;
+
       // Add page image
       if (pageData.imageBase64) {
         const imgBase64 = pageData.imageBase64.split(',')[1] || pageData.imageBase64;
-        zip.file(`${baseName}/page_${String(pageIdx + 1).padStart(3, '0')}.png`, imgBase64, { base64: true });
+        zip.file(`${baseName}/${imageName}`, imgBase64, { base64: true });
       }
 
-      // Process layout elements
-      const pageElements = pageData.layoutElements.map((el, i) => ({
-        category_type: el.category_type,
-        poly: el.poly,
-        text: pageData.ocrElements[i]?.text || '',
-      }));
+      const elements = pageData.ocrElements.map((el, i) => {
+        const element: Record<string, unknown> = {
+          category_type: el.category_type,
+          poly: el.poly,
+          order: i,
+        };
+
+        if (el.category_type === 'table' && el.html) {
+          element.html = el.html;
+        } else if ((el.category_type === 'equation' || el.category_type === 'formula' || el.category_type === 'display_formula') && el.latex) {
+          element.latex = el.latex;
+        } else {
+          element.text = el.text || '';
+        }
+
+        return element;
+      });
 
       // Extract figures/tables as separate images
       if (pageData.imageBase64) {
-        for (const el of pageElements) {
+        const layoutElements = pageData.layoutElements;
+        for (const el of layoutElements) {
           if (el.category_type !== 'figure' && el.category_type !== 'table') continue;
           const poly = el.poly;
-          if (poly.length < 8) continue;
+          if (poly.length < 4) continue;
 
-          const xMin = Math.min(poly[0], poly[2], poly[4], poly[6]);
-          const yMin = Math.min(poly[1], poly[3], poly[5], poly[7]);
-          const xMax = Math.max(poly[0], poly[2], poly[4], poly[6]);
-          const yMax = Math.max(poly[1], poly[3], poly[5], poly[7]);
+          const xMin = poly[0];
+          const yMin = poly[1];
+          const xMax = poly[2];
+          const yMax = poly[3];
 
           const cropWidth = Math.round(xMax - xMin);
           const cropHeight = Math.round(yMax - yMin);
@@ -110,15 +130,20 @@ async function exportDocumentAsZip(doc: PdfDocument) {
         }
       }
 
-      exportElements.push(...pageElements.map((el) => ({ page: pageIdx + 1, ...el })));
+      exportPages.push({
+        page_number: pageIdx + 1,
+        image_path: imageName,
+        page_info: { width: pageData.width, height: pageData.height },
+        elements,
+      });
     }
 
-    const annotations = {
+    const result = {
       document_name: doc.name,
       total_pages: pages.length,
-      elements: exportElements,
+      pages: exportPages,
     };
-    zip.file(`${baseName}/annotations.json`, JSON.stringify(annotations, null, 2));
+    zip.file(`${baseName}/result.json`, JSON.stringify(result, null, 2));
 
     let content: Blob;
     try {
@@ -176,6 +201,58 @@ export function PdfListView() {
     await exportDocumentAsZip(doc);
   }, []);
 
+  const zipInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportZip = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const doc = await importDocumentFromZip(file);
+
+      // Deduplicate name
+      const existingDocs = useDocumentListStore.getState().documents;
+      let name = doc.name;
+      let counter = 1;
+      while (existingDocs.some(d => d.name === name)) {
+        name = `${doc.name}(导入 ${counter})`;
+        counter++;
+      }
+      doc.name = name;
+
+      // Directly insert into store (bypass addDocuments which creates pending docs)
+      useDocumentListStore.setState((state) => ({
+        documents: [...state.documents, doc],
+      }));
+
+      const STORAGE_KEY = 'parsedDocuments_v1';
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const existing: any[] = raw ? JSON.parse(raw) : [];
+        const persisted = existing.filter((d: any) => d.name !== name);
+        persisted.push({
+          name: doc.name,
+          pageCount: doc.pageCount,
+          status: 'saved' as const,
+          parsedData: doc.parsedData.map(({ imageBase64, ...rest }) => rest),
+          error: null,
+          parsedPageCount: doc.parsedData.length,
+          savedAt: Date.now(),
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
+      } catch {}
+
+      const { saveImage } = await import('../utils/idb');
+      for (let i = 0; i < doc.parsedData.length; i++) {
+        saveImage(`persisted_${name}`, i, doc.parsedData[i].imageBase64, doc.parsedData[i].width, doc.parsedData[i].height);
+      }
+
+      alert('导入成功：' + name);
+    } catch (e: any) {
+      alert('导入失败：' + (e.message || '未知错误'));
+    }
+    e.target.value = '';
+  }, []);
+
   const stats = {
     pending: documents.filter((d) => d.status === 'pending').length,
     parsing: documents.filter((d) => d.status === 'parsing').length,
@@ -196,6 +273,14 @@ export function PdfListView() {
 
       <div className="list-header">
         <h2>PDF 列表</h2>
+        <button className="action-btn" onClick={() => zipInputRef.current?.click()}>📥 导入 ZIP</button>
+        <input
+          ref={zipInputRef}
+          type="file"
+          accept=".zip"
+          style={{ display: 'none' }}
+          onChange={handleImportZip}
+        />
         <div className="list-stats">
           <span>共 {documents.length} 份</span>
           {stats.pending > 0 && <span className="stat-pending">待解析 {stats.pending}</span>}
