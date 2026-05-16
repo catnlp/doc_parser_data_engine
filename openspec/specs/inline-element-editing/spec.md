@@ -31,7 +31,13 @@ TBD - created by archiving change optimize-ui-display-actual-content. Update Pur
 
 #### Scenario: 保存修改后的内容
 - **WHEN** 用户在展开态卡片的内容编辑器中修改内容并点击"保存"按钮
-- **THEN** 修改后的内容写入 store，卡片折叠态展示最新渲染结果
+- **THEN** 修改后的内容写入 annotationStore，卡片折叠态展示最新渲染结果
+- **AND** 修改同步到 documentListStore 对应元素的对应字段
+- **AND** 最新数据持久化到 localStorage
+
+#### Scenario: 退出重进后编辑持久化可见
+- **WHEN** 用户编辑元素内容并保存后，退出标注页回到列表，再重新进入同一文档
+- **THEN** 之前编辑保存的内容在右侧面板中正确展示
 
 ### Requirement: 移除"元素详情"标签页
 右侧面板中 MUST 移除原有的"元素详情"标签页及其对应的 ElementDetail 组件逻辑。

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { PdfInfo, PageInfo, PdfElement } from '../types/omnidoc';
+import { useDocumentListStore } from './useDocumentListStore';
 
 export type ToolMode = 'select' | 'create';
 export type ApiStatus = 'idle' | 'calling_layout' | 'calling_ocr' | 'done' | 'loading' | 'error';
@@ -18,6 +19,7 @@ interface AnnotationStore {
   imagePath: string;
   pdfFile: File | null;
   renderedPages: RenderedPage[];
+  currentDocId: string | null;
 
   selectedElementId: string | null;
   hoveredElementId: string | null;
@@ -59,6 +61,7 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
   imagePath: '',
   pdfFile: null,
   renderedPages: [],
+  currentDocId: null,
 
   selectedElementId: null,
   hoveredElementId: null,
@@ -100,6 +103,7 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
     elementDraftContent: null,
     apiStatus: 'idle',
     apiError: null,
+    currentDocId: null,
   }),
 
   setCurrentPage: (page) => set({ currentPage: page, selectedElementId: null, hoveredElementId: null }),
@@ -118,7 +122,7 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
 
   getPageInfo: () => get().pageInfo[get().currentPage - 1],
 
-  updateElement: (elementId, updates) =>
+  updateElement: (elementId, updates) => {
     set((state) => {
       const newPdfInfo = [...state.pdfInfo];
       const pageIndex = state.currentPage - 1;
@@ -126,10 +130,23 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
       const idx = elements.findIndex((e) => e.id === elementId);
       if (idx !== -1) {
         elements[idx] = { ...elements[idx], ...updates };
-  newPdfInfo[pageIndex] = { ...newPdfInfo[pageIndex], pdf_info: elements };
+        newPdfInfo[pageIndex] = { ...newPdfInfo[pageIndex], pdf_info: elements };
       }
       return { pdfInfo: newPdfInfo };
-    }),
+    });
+
+    try {
+      const state = get();
+      if (!state.currentDocId) return;
+      const parts = elementId.split('_');
+      if (parts.length < 4 || parts[0] !== 'el') return;
+      const pageIdx = parseInt(parts[1], 10);
+      const elemIdx = parseInt(parts[2], 10);
+      if (isNaN(pageIdx) || isNaN(elemIdx)) return;
+      useDocumentListStore.getState().syncElementEdit(state.currentDocId, pageIdx, elemIdx, updates);
+    } catch {
+    }
+  },
 
   addElement: (element) =>
     set((state) => {

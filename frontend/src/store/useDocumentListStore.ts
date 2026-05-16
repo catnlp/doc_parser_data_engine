@@ -82,6 +82,7 @@ interface DocumentListStore {
   loadFromLocalStorage: () => void;
   reparseDocument: (id: string, file: File) => void;
   loadSavedDocument: (id: string, file: File) => void;
+  syncElementEdit: (docId: string, pageIdx: number, elementIdx: number, updates: Record<string, unknown>) => void;
   restoreFromIndexedDB: () => Promise<void>;
 }
 
@@ -239,6 +240,48 @@ export const useDocumentListStore = create<DocumentListStore>((set, get) => ({
         selectedDocumentId: state.selectedDocumentId === id ? null : state.selectedDocumentId,
       };
     }),
+
+  syncElementEdit: (docId, pageIdx, elementIdx, updates) => {
+    set((state) => {
+      const docs = state.documents.map((doc) => {
+        if (doc.id !== docId) return doc;
+        const newParsedData = [...doc.parsedData];
+        if (!newParsedData[pageIdx]) return doc;
+        const page = { ...newParsedData[pageIdx] };
+        const ocrElements = [...(page.ocrElements || [])];
+        if (!ocrElements[elementIdx]) return doc;
+        const element = { ...ocrElements[elementIdx] };
+
+        // 映射 annotationStore 字段名 → ocrElements 字段名
+        // annotationStore 用 'markdown' 表示文本内容，ocrElements 用 'text'
+        if ('markdown' in updates) {
+          element.text = updates.markdown as string;
+        }
+        if ('html' in updates) {
+          element.html = updates.html as string;
+        }
+        if ('latex' in updates) {
+          element.latex = updates.latex as string;
+        }
+        if ('category_type' in updates) {
+          element.category_type = updates.category_type as string;
+        }
+
+        ocrElements[elementIdx] = element;
+        page.ocrElements = ocrElements;
+        newParsedData[pageIdx] = page;
+        return { ...doc, parsedData: newParsedData };
+      });
+      return { documents: docs };
+    });
+
+    const updatedDoc = get().documents.find((d) => d.id === docId);
+    if (updatedDoc) {
+      const allDocs = loadPersisted().filter((d) => d.name !== updatedDoc.name);
+      allDocs.push(toPersisted(updatedDoc));
+      savePersisted(allDocs);
+    }
+  },
 
   restoreFromIndexedDB: async () => {
     const savedDocs = get().documents.filter((d) => d.status === 'saved');

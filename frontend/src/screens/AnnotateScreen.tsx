@@ -67,6 +67,7 @@ export default function AnnotateScreen() {
       currentPage: 1,
       apiStatus: 'done',
       renderedPages: renderedPagesList,
+      currentDocId: doc.id,
     });
   };
 
