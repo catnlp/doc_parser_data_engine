@@ -8,6 +8,7 @@ import { useAnnotationStore } from '../../store/useAnnotationStore';
 import { TypeSelector } from './TypeSelector';
 import { ContentEditor } from './ContentEditor';
 import { ParseQualityPanel } from './ParseQualityPanel';
+import { ChunkList } from './ChunkList';
 import { TYPE_ICONS } from '../../constants/elementTypes';
 import DOMPurify from 'dompurify';
 
@@ -54,11 +55,17 @@ function CroppedFigure({ pageBase64, poly }: { pageBase64: string; poly: number[
 import type { PdfElement, ElementType } from '../../types/omnidoc';
 
 export function RightPanel() {
-  const [tab, setTab] = useState<'elements' | 'analysis'>('elements');
+  const [tab, setTab] = useState<'chunks' | 'elements' | 'analysis'>('chunks');
 
   return (
     <div className="right-panel">
       <div className="panel-tabs">
+        <button
+          className={`panel-tab ${tab === 'chunks' ? 'active' : ''}`}
+          onClick={() => setTab('chunks')}
+        >
+          分块列表
+        </button>
         <button
           className={`panel-tab ${tab === 'elements' ? 'active' : ''}`}
           onClick={() => setTab('elements')}
@@ -73,7 +80,7 @@ export function RightPanel() {
         </button>
       </div>
       <div className="right-panel-content">
-        {tab === 'elements' ? <ElementList /> : <ParseQualityPanel />}
+        {tab === 'chunks' ? <ChunkList /> : tab === 'elements' ? <ElementList /> : <ParseQualityPanel />}
       </div>
     </div>
   );

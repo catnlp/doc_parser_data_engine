@@ -17,8 +17,11 @@ doc_parser_data_engine/
 │   │   ├── api/                # API 调用层
 │   │   ├── components/         # UI 组件
 │   │   │   ├── left-panel/     # PDF 渲染 + bbox 覆盖层
-│   │   │   ├── right-panel/    # 元素列表 + 内容编辑
-│   │   │   ├── TopBar.tsx      # 顶部工具栏
+│   │   │   ├── right-panel/    # 分块列表 + 元素列表 + 解析分析
+│   │   │   │   ├── ChunkList.tsx    # 分块列表组件
+│   │   │   │   ├── RightPanel.tsx   # 右侧面板
+│   │   │   │   └── ...
+│   │   │   ├── TopBar.tsx      # 顶部工具栏（含导出按钮）
 │   │   │   └── BottomNav.tsx   # 底部页码导航
 │   │   ├── screens/            # 页面路由
 │   │   │   ├── ListScreen.tsx  # 文档列表（上传/导出/导入）
@@ -26,6 +29,9 @@ doc_parser_data_engine/
 │   │   ├── store/              # Zustand 状态管理
 │   │   ├── types/              # TypeScript 类型定义
 │   │   ├── utils/              # 工具函数
+│   │   │   ├── chunk.ts        # 分块计算算法
+│   │   │   ├── exportZip.ts    # ZIP 导出（含分块数据）
+│   │   │   └── ...
 │   │   ├── constants/          # 常量（元素类型、颜色）
 │   │   └── styles/             # CSS 样式（设计令牌体系）
 │   ├── package.json
@@ -56,29 +62,68 @@ flowchart LR
 ```mermaid
 flowchart TD
     subgraph 标注页
-        TB[TopBar<br/>返回/翻页/缩放/工具切换/保存]
+        TB[TopBar<br/>返回/翻页/缩放/工具切换/导出]
         LR[左右分栏]
         subgraph Left[左侧 - PDF 视图]
-            PDF[PDF 页面渲染<br/>+ bbox 覆盖层]
+            PDF[PDF 页面渲染<br/>+ bbox 覆盖层<br/>+ 分块高亮]
             LEGEND[类型图例]
         end
-        subgraph Right[右侧 - 元素面板]
+        subgraph Right[右侧面板]
+            TAB[📦 分块 / 📋 元素 / 📊 分析]
+            CHUNK[分块列表<br/>段落/表格/图片<br/>展开查看子元素]
             SEARCH[搜索/筛选]
-            LIST[元素卡片列表<br/>拖拽排序/编辑]
+            LIST[元素卡片<br/>拖拽排序/编辑]
             PREVIEW[内容预览<br/>Markdown/表格/公式/图片]
         end
         BN[BottomNav<br/>页码导航]
     end
 ```
 
+#### 分块列表
+
+右侧面板新增"分块列表"Tab，按照书写顺序自动将相邻文字元素合并为段落块，帮助快速了解文档结构。
+
+**合并策略**：
+- 表格（table）、图片（figure/image/chart）单独成块，不与周围元素合并
+- 标题（title）与其后的正文合并到同一段落块
+- 段落块累计字符数超过 500 时自动截断为新块
+- 页码（page_number）类元素被忽略，不参与分块
+
+**交互**：
+- 点击分块 → 左侧 PDF 视图中该分块所有元素同时高亮，并显示外围虚线边界框
+- 展开分块 → 查看包含的子元素列表（缩进显示）
+- 默认全部展开，支持搜索和按类型筛选
+
 ### 3. 数据导入导出
 
 ```mermaid
 flowchart LR
-    A[📤 导出 ZIP] --> B["{name}.zip<br/>├── result.json<br/>├── page_001.png<br/>└── images/"]
+    A[📤 导出 ZIP] --> B["{name}.zip<br/>├── result.json (含分块数据)<br/>├── page_001.png<br/>└── images/"]
     B --> C[📥 导入 ZIP]
     C --> D[还原文档<br/>可继续标注]
 ```
+
+**导出格式**（`result.json`）：
+
+```json
+{
+  "document_name": "example.pdf",
+  "total_pages": 1,
+  "pages": [{
+    "page_number": 1,
+    "image_path": "page_001.png",
+    "page_info": { "width": 595, "height": 842 },
+    "elements": [{ "category_type": "text", "poly": [...], "order": 0, "text": "..." }],
+    "chunks": [
+      { "label": "段落 1", "type": "text_block", "element_indices": [0,1,2], "char_count": 450 },
+      { "label": "表格 1", "type": "table", "element_indices": [3], "char_count": 120 }
+    ]
+  }]
+}
+```
+
+- `element_indices` 引用同页 `elements` 数组的 `order` 字段
+- 标注页 TopBar 和文档列表页都有"导出"按钮
 
 ### 4. 左右面板联动
 
@@ -162,9 +207,10 @@ flowchart TD
     UPLOAD --> PARSE[⏳ 自动解析<br/>版面 → OCR → 公式/表格]
     PARSE --> LIST[📋 文档列表<br/>查看状态/导出/删除]
     LIST -->|点击文档| ANNOTATE[✏️ 标注页面]
-    ANNOTATE --> EDIT[编辑元素内容<br/>修改类型/排序]
+    ANNOTATE --> CHUNK[📦 查看分块结构]
+    CHUNK --> EDIT[编辑元素内容<br/>修改类型/排序]
     EDIT --> SAVE[💾 保存修改]
-    SAVE --> EXPORT[📤 导出 ZIP]
+    SAVE --> EXPORT[📤 导出 ZIP 含分块]
     EXPORT --> IMPORT[📥 后续可导入继续编辑]
 ```
 

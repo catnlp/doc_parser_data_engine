@@ -10,11 +10,20 @@ interface ZipExportElement {
   latex?: string;
 }
 
+interface ZipExportChunk {
+  label: string;
+  type: string;
+  element_indices: number[];
+  column_index: number;
+  char_count: number;
+}
+
 interface ZipExportPage {
   page_number: number;
   image_path: string;
   page_info: { width: number; height: number };
   elements: ZipExportElement[];
+  chunks?: ZipExportChunk[];
 }
 
 interface ZipExportResult {

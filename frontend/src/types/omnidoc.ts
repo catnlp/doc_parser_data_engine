@@ -12,12 +12,25 @@ export type ElementType =
   | 'table_caption'
   | 'figure'
   | 'figure_caption'
+  | 'figure_title'
   | 'equation'
   | 'formula'
   | 'display_formula'
   | 'image'
   | 'image_caption'
-  | 'chart';
+  | 'chart'
+  | 'paragraph_title'
+  | 'doc_title'
+  | 'abstract'
+  | 'footnote'
+  | 'reference'
+  | 'code_txt'
+  | 'code_txt_caption'
+  | 'aside_text'
+  | 'droped_text'
+  | 'number'
+  | 'page_number'
+  | 'page_footnote';
 
 export interface BBox {
   poly: number[]; // bbox [left, top, right, bottom]
@@ -53,4 +66,21 @@ export interface PdfInfo {
 export interface DocumentModel {
   image_path: string;
   pages: PdfInfo[];
+}
+
+export type ChunkType = 'text_block' | 'table' | 'figure';
+
+export interface Chunk {
+  id: string;
+  type: ChunkType;
+  elements: PdfElement[];
+  label: string;
+  columnIndex: number;
+  unionBbox: number[];
+  charCount: number;
+}
+
+export interface ColumnLayout {
+  columnCount: number;
+  splitX: number | null;
 }

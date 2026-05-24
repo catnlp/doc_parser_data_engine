@@ -1,7 +1,8 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useAnnotationStore } from '../../store/useAnnotationStore';
 import { BBOX_COLORS, TYPE_LABELS, TYPE_ICONS } from '../../constants/elementTypes';
 import { polyToSvgPoints, polyToBBox } from '../../utils/poly';
+import { computeChunks, detectColumns, getPageWidth } from '../../utils/chunk';
 
 function hexToRgba(hex: string, alpha: number): string {
   const h = hex.replace('#', '');
@@ -36,6 +37,20 @@ export function LeftPanel({ pageNumber, pageInfo, renderedImage }: LeftPanelProp
   const [typeSelectorPos, setTypeSelectorPos] = useState<{ x: number; y: number } | null>(null);
   const hoveredElementId = useAnnotationStore((s) => s.hoveredElementId);
   const setHoveredElementId = useAnnotationStore((s) => s.setHoveredElementId);
+  const selectedChunkId = useAnnotationStore((s) => s.selectedChunkId);
+  const hoveredChunkId = useAnnotationStore((s) => s.hoveredChunkId);
+
+  const chunks = useMemo(() => {
+    if (elements.length === 0) return [];
+    const pw = getPageWidth(elements, pageInfo.width);
+    const columnLayout = detectColumns(elements, pw);
+    return computeChunks(elements, columnLayout, pw);
+  }, [elements, pageInfo.width]);
+
+  const selectedChunk = chunks.find((c) => c.id === selectedChunkId) ?? null;
+  const hoveredChunk = chunks.find((c) => c.id === hoveredChunkId) ?? null;
+  const selectedChunkElementIds = new Set(selectedChunk?.elements.map((e) => e.id) ?? []);
+  const hoveredChunkElementIds = new Set(hoveredChunk?.elements.map((e) => e.id) ?? []);
 
   useEffect(() => {
     if (containerRef.current) {
@@ -156,9 +171,17 @@ export function LeftPanel({ pageNumber, pageInfo, renderedImage }: LeftPanelProp
               const bbox = polyToBBox(el.poly);
               const isSelected = el.id === selectedElementId;
               const isHovered = el.id === hoveredElementId;
+              const inSelectedChunk = selectedChunkElementIds.has(el.id);
+              const inHoveredChunk = hoveredChunkElementIds.has(el.id);
+              const hasChunkHighlight = !selectedElementId && !hoveredElementId && (inSelectedChunk || inHoveredChunk);
               const bx = bbox.x * displayScale;
               const by = bbox.y * displayScale;
-              const fillColor = isSelected ? hexToRgba(color, 0.19) : isHovered ? hexToRgba(color, 0.08) : 'transparent';
+              const fillColor = isSelected ? hexToRgba(color, 0.19)
+                : isHovered ? hexToRgba(color, 0.08)
+                : inSelectedChunk ? hexToRgba(color, 0.10)
+                : inHoveredChunk ? hexToRgba(color, 0.05)
+                : 'transparent';
+              const strokeWidth = isSelected ? 3 : isHovered ? 2 : hasChunkHighlight ? 1.5 : 1;
               return (
                 <g key={el.id}>
                   <polygon
@@ -166,7 +189,7 @@ export function LeftPanel({ pageNumber, pageInfo, renderedImage }: LeftPanelProp
                     points={points}
                     fill={fillColor}
                     stroke={isSelected || isHovered ? color : color}
-                    strokeWidth={isSelected ? 3 : isHovered ? 2 : 1}
+                    strokeWidth={strokeWidth}
                     strokeDasharray={isHovered && !isSelected ? '5,3' : 'none'}
                     style={{ pointerEvents: 'auto', cursor: 'pointer' }}
                     onClick={() => toolMode === 'select' && setSelectedElementId(el.id)}
@@ -179,6 +202,32 @@ export function LeftPanel({ pageNumber, pageInfo, renderedImage }: LeftPanelProp
                 </g>
               );
             })}
+            {selectedChunk && !selectedElementId && (
+              <rect
+                x={selectedChunk.unionBbox[0] * displayScale}
+                y={selectedChunk.unionBbox[1] * displayScale}
+                width={(selectedChunk.unionBbox[2] - selectedChunk.unionBbox[0]) * displayScale}
+                height={(selectedChunk.unionBbox[3] - selectedChunk.unionBbox[1]) * displayScale}
+                fill="transparent"
+                stroke="#3B82F6"
+                strokeWidth={2}
+                strokeDasharray="8,4"
+                style={{ pointerEvents: 'none' }}
+              />
+            )}
+            {hoveredChunk && !hoveredElementId && !selectedChunk && (
+              <rect
+                x={hoveredChunk.unionBbox[0] * displayScale}
+                y={hoveredChunk.unionBbox[1] * displayScale}
+                width={(hoveredChunk.unionBbox[2] - hoveredChunk.unionBbox[0]) * displayScale}
+                height={(hoveredChunk.unionBbox[3] - hoveredChunk.unionBbox[1]) * displayScale}
+                fill="transparent"
+                stroke="#93C5FD"
+                strokeWidth={1.5}
+                strokeDasharray="6,3"
+                style={{ pointerEvents: 'none' }}
+              />
+            )}
             {creationStart && creationCurrent && (
               <rect
                 className="creation-rect"

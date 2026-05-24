@@ -23,6 +23,8 @@ interface AnnotationStore {
 
   selectedElementId: string | null;
   hoveredElementId: string | null;
+  selectedChunkId: string | null;
+  hoveredChunkId: string | null;
   toolMode: ToolMode;
   zoom: number;
   leftPanelWidth: number;
@@ -37,6 +39,8 @@ interface AnnotationStore {
   setCurrentPage: (page: number) => void;
   setSelectedElementId: (id: string | null) => void;
   setHoveredElementId: (id: string | null) => void;
+  setSelectedChunkId: (id: string | null) => void;
+  setHoveredChunkId: (id: string | null) => void;
   setToolMode: (mode: ToolMode) => void;
   setZoom: (zoom: number) => void;
   setLeftPanelWidth: (width: number) => void;
@@ -65,6 +69,8 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
 
   selectedElementId: null,
   hoveredElementId: null,
+  selectedChunkId: null,
+  hoveredChunkId: null,
   toolMode: 'select',
   zoom: 100,
   leftPanelWidth: 0,
@@ -97,6 +103,8 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
     renderedPages: [],
     selectedElementId: null,
     hoveredElementId: null,
+    selectedChunkId: null,
+    hoveredChunkId: null,
     toolMode: 'select',
     zoom: 100,
     dirtyPages: new Set<number>(),
@@ -106,11 +114,15 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
     currentDocId: null,
   }),
 
-  setCurrentPage: (page) => set({ currentPage: page, selectedElementId: null, hoveredElementId: null }),
+  setCurrentPage: (page) => set({ currentPage: page, selectedElementId: null, hoveredElementId: null, selectedChunkId: null, hoveredChunkId: null }),
 
-  setSelectedElementId: (id) => set({ selectedElementId: id }),
+  setSelectedElementId: (id) => set({ selectedElementId: id, selectedChunkId: null }),
 
   setHoveredElementId: (id) => set({ hoveredElementId: id }),
+
+  setSelectedChunkId: (id) => set({ selectedChunkId: id, selectedElementId: null }),
+
+  setHoveredChunkId: (id) => set({ hoveredChunkId: id }),
 
   setToolMode: (mode) => set({ toolMode: mode }),
 

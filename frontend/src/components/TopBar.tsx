@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useAnnotationStore } from '../store/useAnnotationStore';
 import { useDocumentListStore } from '../store/useDocumentListStore';
 import { parsePdfDocument } from '../utils/parsePdf';
+import { exportDocumentAsZip } from '../utils/exportZip';
 
 interface TopBarProps {
   onPageChange: (page: number) => void;
@@ -18,6 +19,8 @@ export function TopBar({ onPageChange, pdfFile, totalPages }: TopBarProps) {
   const goBackToList = useDocumentListStore((s) => s.goBackToList);
   const addDocuments = useDocumentListStore((s) => s.addDocuments);
   const selectDocument = useDocumentListStore((s) => s.selectDocument);
+  const documents = useDocumentListStore((s) => s.documents);
+  const currentDocId = useAnnotationStore((s) => s.currentDocId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleBack = () => {
@@ -54,6 +57,13 @@ export function TopBar({ onPageChange, pdfFile, totalPages }: TopBarProps) {
   const handleZoomIn = () => setZoom(Math.min(200, zoom + 10));
   const handleZoomOut = () => setZoom(Math.max(50, zoom - 10));
 
+  const handleExport = async () => {
+    if (!currentDocId) return;
+    const doc = documents.find((d) => d.id === currentDocId);
+    if (!doc) return;
+    await exportDocumentAsZip(doc);
+  };
+
   return (
     <div className="topbar">
       <div className="page-nav">
@@ -85,6 +95,7 @@ export function TopBar({ onPageChange, pdfFile, totalPages }: TopBarProps) {
         </button>
       </div>
       <div className="actions">
+        <button className="primary" onClick={handleExport}>📤 导出</button>
         <button className="primary" onClick={handleReload}>📂 打开</button>
       </div>
       <input

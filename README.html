@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doc Parser Data Engine</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a0b;
+    --bg-card: #111114;
+    --bg-elevated: #18181c;
+    --border: #242428;
+    --border-hover: #3a3a40;
+    --text-primary: #e4e4e7;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --accent: #3b82f6;
+    --accent-glow: rgba(59,130,246,0.15);
+    --green: #22c55e;
+    --orange: #f59e0b;
+    --purple: #a855f7;
+    --red: #ef4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+
+  /* Hero */
+  .hero {
+    padding: 64px 0 48px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+
+  .hero h1 {
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 50%, #60a5fa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+  }
+
+  .hero p {
+    font-size: 17px;
+    color: var(--text-secondary);
+    max-width: 560px;
+  }
+
+  /* Headings */
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin: 56px 0 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-size: 19px;
+    font-weight: 600;
+    margin: 36px 0 12px;
+    color: var(--text-primary);
+  }
+
+  h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 24px 0 10px;
+    color: var(--accent);
+  }
+
+  p, li { color: var(--text-secondary); font-size: 15px; }
+
+  /* Code blocks */
+  pre {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    margin: 16px 0;
+    font-family: 'DM Mono', 'SF Mono', 'Fira Code', monospace;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text-primary);
+  }
+
+  code {
+    font-family: 'DM Mono', 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    background: var(--bg-elevated);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--accent);
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+
+  /* Keyboard/language tags on code blocks */
+  .code-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: -12px;
+    margin-top: 20px;
+    padding-left: 4px;
+  }
+
+  /* Directory tree */
+  .dir-tree {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-secondary);
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+
+  .dir-tree .comment { color: var(--text-muted); }
+  .dir-tree .highlight { color: var(--accent); }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+
+  thead { background: var(--bg-elevated); }
+
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 2px solid var(--border);
+  }
+
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+
+  tr:hover td { background: rgba(255,255,255,0.015); }
+
+  /* Lists */
+  ul {
+    list-style: none;
+    padding-left: 0;
+    margin: 8px 0;
+  }
+
+  li {
+    padding: 4px 0 4px 22px;
+    position: relative;
+  }
+
+  li::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 12px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.6;
+  }
+
+  /* Cards for features */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  .feature-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .feature-card h4 { margin-top: 0; }
+
+  /* Section cards */
+  .section-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 16px 0;
+  }
+
+  .section-card h3 {
+    margin-top: 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Mermaid diagrams */
+  .mermaid {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+
+  /* JSON highlight */
+  .json-key { color: var(--accent); }
+  .json-string { color: var(--green); }
+  .json-number { color: var(--orange); }
+  .json-bool { color: var(--purple); }
+
+  /* Tags */
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .tag-blue { background: rgba(59,130,246,0.15); color: var(--accent); }
+  .tag-green { background: rgba(34,197,94,0.15); color: var(--green); }
+  .tag-orange { background: rgba(245,158,11,0.15); color: var(--orange); }
+  .tag-purple { background: rgba(168,85,247,0.15); color: var(--purple); }
+
+  /* Export format inline */
+  .export-structure {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin: 12px 0;
+  }
+
+  .export-structure .hl { color: var(--accent); }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .container { padding: 24px 16px 64px; }
+    .hero h1 { font-size: 30px; }
+    .feature-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Hero -->
+<div class="hero">
+  <h1>Doc Parser Data Engine</h1>
+  <p>PDF 文档解析与标注工具——将 PDF 转换为结构化数据，支持版面分析、OCR 识别、公式/表格提取，并提供可视化标注界面。</p>
+</div>
+
+<!-- Architecture -->
+<h2>📁 项目架构</h2>
+<div class="dir-tree">
+<span class="highlight">doc_parser_data_engine/</span>
+├── <span class="highlight">backend/</span>                    <span class="comment"># Python FastAPI OCR 服务</span>
+│   ├── api_ocr.py              <span class="comment"># 主服务（布局检测 + OCR 识别 + 公式/表格 API）</span>
+│   ├── requirements.txt        <span class="comment"># Python 依赖</span>
+│   ├── Dockerfile              <span class="comment"># 容器化部署</span>
+│   └── start.sh                <span class="comment"># 开发启动脚本</span>
+│
+├── <span class="highlight">frontend/</span>                   <span class="comment"># React + TypeScript 前端</span>
+│   ├── src/
+│   │   ├── api/                <span class="comment"># API 调用层</span>
+│   │   ├── components/         <span class="comment"># UI 组件</span>
+│   │   │   ├── left-panel/     <span class="comment"># PDF 渲染 + bbox 覆盖层</span>
+│   │   │   ├── right-panel/    <span class="comment"># 分块列表 + 元素列表 + 解析分析</span>
+│   │   │   │   ├── ChunkList.tsx    <span class="comment"># 分块列表组件</span>
+│   │   │   │   ├── RightPanel.tsx   <span class="comment"># 右侧面板</span>
+│   │   │   │   └── <span class="comment">...</span>
+│   │   │   ├── TopBar.tsx      <span class="comment"># 顶部工具栏（含导出按钮）</span>
+│   │   │   └── BottomNav.tsx   <span class="comment"># 底部页码导航</span>
+│   │   ├── screens/            <span class="comment"># 页面路由</span>
+│   │   ├── store/              <span class="comment"># Zustand 状态管理</span>
+│   │   ├── types/              <span class="comment"># TypeScript 类型定义</span>
+│   │   ├── utils/
+│   │   │   ├── chunk.ts        <span class="comment"># 分块计算算法</span>
+│   │   │   ├── exportZip.ts    <span class="comment"># ZIP 导出（含分块数据）</span>
+│   │   │   └── <span class="comment">...</span>
+│   │   ├── constants/          <span class="comment"># 常量（元素类型、颜色）</span>
+│   │   └── styles/             <span class="comment"># CSS 样式（设计令牌体系）</span>
+│   ├── package.json
+│   └── vite.config.ts
+│
+└── <span class="highlight">openspec/</span>                   <span class="comment"># 变更提案与规范文档</span>
+</div>
+
+<!-- Core Features -->
+<h2>⚡ 核心功能</h2>
+
+<h3>1. PDF 解析流水线</h3>
+<div class="mermaid">
+flowchart LR
+    A[📄 上传 PDF] --> B[📐 版面分析 PP-DocLayoutV2]
+    B --> C{元素分类}
+    C -->|公式| D[🔢 公式识别]
+    C -->|表格| E[📊 表格识别]
+    C -->|文本| F[🔤 OCR 识别 PP-OCRv5]
+    D --> G[合并结果]
+    E --> G
+    F --> G
+    G --> H[💾 存入 Store + IndexedDB]
+</div>
+
+<h3>2. 标注界面</h3>
+<div class="mermaid">
+flowchart TD
+    subgraph 标注页
+        TB["TopBar 返回/翻页/缩放/工具切换/导出"]
+        LR[左右分栏]
+        subgraph Left["左侧 - PDF 视图"]
+            PDF["PDF 页面渲染 + bbox 覆盖层 + 分块高亮"]
+            LEGEND[类型图例]
+        end
+        subgraph Right["右侧面板"]
+            TAB["📦 分块 / 📋 元素 / 📊 分析"]
+            CHUNK["分块列表 段落/表格/图片 展开查看子元素"]
+            SEARCH[搜索/筛选]
+            LIST["元素卡片 拖拽排序/编辑"]
+            PREVIEW["内容预览 Markdown/表格/公式/图片"]
+        end
+        BN["BottomNav 页码导航"]
+    end
+</div>
+
+<h4>分块列表</h4>
+<p>右侧面板新增「分块列表」Tab，按照书写顺序自动将相邻文字元素合并为段落块，帮助快速了解文档结构。</p>
+
+<div class="feature-grid">
+  <div class="feature-card">
+    <h4>合并策略</h4>
+    <ul>
+      <li>表格、图片单独成块，不与周围元素合并</li>
+      <li>标题与其后的正文合并到同一段落块</li>
+      <li>段落累计字符数超过 500 时自动截断为新块</li>
+      <li>页码类元素被忽略，不参与分块</li>
+    </ul>
+  </div>
+  <div class="feature-card">
+    <h4>交互方式</h4>
+    <ul>
+      <li>点击分块 → PDF 视图所有元素同时高亮，显示虚线边界框</li>
+      <li>展开分块 → 查看子元素列表（缩进显示）</li>
+      <li>默认全部展开，支持搜索和类型筛选</li>
+      <li>分块选中与元素选中互斥，优先元素</li>
+    </ul>
+  </div>
+</div>
+
+<h3>3. 数据导入导出</h3>
+<div class="mermaid">
+flowchart LR
+    A[📤 导出 ZIP] --> B["{name}.zip 含分块数据"]
+    B --> C[📥 导入 ZIP]
+    C --> D[还原文档 可继续标注]
+</div>
+
+<p>导出的 <code>result.json</code> 包含分块数据：</p>
+
+<div class="export-structure">
+<span class="hl">{</span>
+  "document_name": <span class="hl">"example.pdf"</span>,
+  "total_pages": <span class="hl">1</span>,
+  "pages": [<span class="hl">{</span>
+    "page_number": <span class="hl">1</span>,
+    "image_path": <span class="hl">"page_001.png"</span>,
+    "page_info": { <span class="hl">"width": 595, "height": 842</span> },
+    "elements": [<span class="hl">{</span> "category_type": <span class="hl">"text"</span>, "poly": [...], <span class="hl">"order": 0</span>, "text": <span class="hl">"..."</span> }],
+    "chunks": [
+      { <span class="hl">"label": "段落 1"</span>, <span class="hl">"type": "text_block"</span>, <span class="hl">"element_indices": [0,1,2]</span>, "char_count": <span class="hl">450</span> },
+      { <span class="hl">"label": "表格 1"</span>, <span class="hl">"type": "table"</span>,       <span class="hl">"element_indices": [3]</span>,     "char_count": <span class="hl">120</span> }
+    ]
+  }]
+<span class="hl">}</span>
+</div>
+
+<p style="font-size:13px; color: var(--text-muted); margin-top: 8px;"><code>element_indices</code> 引用同页 <code>elements</code> 数组的 <code>order</code> 字段。标注页 TopBar 和文档列表页都有「导出」按钮。</p>
+
+<h3>4. 左右面板联动</h3>
+<p>点击左侧 bbox → 右侧元素卡片居中 · 点击右侧卡片 → 左侧 bbox 居中</p>
+
+<!-- Element Types -->
+<h2>🏷️ 支持的元素类型</h2>
+<table>
+  <thead>
+    <tr><th>类型</th><th>颜色</th><th>渲染方式</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>text / title / header / footer</td><td><span class="tag tag-blue">蓝</span></td><td>Markdown 文本</td></tr>
+    <tr><td>table</td><td><span class="tag tag-green">绿</span></td><td>HTML 表格</td></tr>
+    <tr><td>figure / image / chart</td><td><span class="tag tag-orange">橙</span></td><td>裁切图</td></tr>
+    <tr><td>equation / formula</td><td><span class="tag tag-purple">紫</span></td><td>LaTeX 公式</td></tr>
+  </tbody>
+</table>
+
+<!-- Tech Stack -->
+<h2>🛠️ 技术栈</h2>
+<table>
+  <thead>
+    <tr><th>层</th><th>技术</th><th>说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>前端框架</td><td>React 19 + TypeScript 6</td><td>组件化 UI 开发</td></tr>
+    <tr><td>构建工具</td><td>Vite 8</td><td>极速 HMR 开发体验</td></tr>
+    <tr><td>状态管理</td><td>Zustand 5</td><td>轻量级全局状态</td></tr>
+    <tr><td>PDF 渲染</td><td>react-pdf + pdfjs-dist</td><td>页面渲染 + 覆盖层</td></tr>
+    <tr><td>Markdown</td><td>react-markdown + KaTeX</td><td>文本 + 公式渲染</td></tr>
+    <tr><td>代码编辑</td><td>CodeMirror 6</td><td>内容编辑</td></tr>
+    <tr><td>拖拽排序</td><td>@dnd-kit</td><td>元素拖拽重排</td></tr>
+    <tr><td>本地存储</td><td>localStorage + IndexedDB</td><td>数据持久化</td></tr>
+    <tr><td>后端框架</td><td>FastAPI (Python 3.11)</td><td>REST API 服务</td></tr>
+    <tr><td>OCR 引擎</td><td>PaddleOCR (PP-OCRv5)</td><td>文字识别</td></tr>
+    <tr><td>版面分析</td><td>PP-DocLayoutV2</td><td>文档布局检测</td></tr>
+  </tbody>
+</table>
+
+<!-- Quick Start -->
+<h2>🚀 快速启动</h2>
+
+<div class="section-card">
+<h3>1. 后端</h3>
+<div class="code-label">bash</div>
+<pre><code>cd backend
+pip install -r requirements.txt
+python api_ocr.py
+<span style="color:var(--text-muted)"># 服务启动在 http://localhost:8002</span></code></pre>
+</div>
+
+<div class="section-card">
+<h3>2. 前端</h3>
+<div class="code-label">bash</div>
+<pre><code>cd frontend
+npm install
+npm run dev
+<span style="color:var(--text-muted)"># 开发服务器启动在 http://localhost:5173</span></code></pre>
+</div>
+
+<div class="section-card">
+<h3>3. 配置 API 地址</h3>
+<p>编辑 <code>frontend/.env</code>：</p>
+<div class="code-label">env</div>
+<pre><code>VITE_LAYOUT_API_URL=http://localhost:8002
+VITE_OCR_MODEL_API_URL=http://localhost:8002
+VITE_PARSE_CONCURRENCY=3</code></pre>
+</div>
+
+<!-- Usage Flow -->
+<h2>📋 使用流程</h2>
+<div class="mermaid">
+flowchart TD
+    START[🚀 启动应用] --> UPLOAD[📁 拖拽/选择 PDF 文件夹]
+    UPLOAD --> PARSE["⏳ 自动解析 版面 → OCR → 公式/表格"]
+    PARSE --> LIST["📋 文档列表 查看状态/导出/删除"]
+    LIST -->|点击文档| ANNOTATE[✏️ 标注页面]
+    ANNOTATE --> CHUNK[📦 查看分块结构]
+    CHUNK --> EDIT[编辑元素内容]
+    EDIT --> SAVE[💾 保存修改]
+    SAVE --> EXPORT[📤 导出 ZIP 含分块]
+    EXPORT --> IMPORT[📥 后续可导入继续编辑]
+</div>
+
+<!-- Backend API -->
+<h2>🔌 后端 API</h2>
+<table>
+  <thead>
+    <tr><th>端点</th><th>方法</th><th>功能</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>/api/health</code></td><td><span class="tag tag-green">GET</span></td><td>健康检查</td></tr>
+    <tr><td><code>/api/layout</code></td><td><span class="tag tag-blue">POST</span></td><td>版面分析（检测文本框/表格/公式/图片区域）</td></tr>
+    <tr><td><code>/api/parse</code></td><td><span class="tag tag-blue">POST</span></td><td>OCR 解析（对指定区域进行文字识别）</td></tr>
+  </tbody>
+</table>
+
+<!-- Docker -->
+<h2>🐳 Docker 部署</h2>
+<div class="code-label">bash</div>
+<pre><code>cd backend
+docker build -t doc-parser-backend .
+docker run -p 8002:8002 doc-parser-backend</code></pre>
+
+<!-- Standards -->
+<h2>📐 项目规范</h2>
+<ul>
+  <li><strong>设计令牌</strong>：CSS 自定义属性定义在 <code>:root</code>，所有颜色通过 <code>var()</code> 引用</li>
+  <li><strong>元素坐标</strong>：使用 bbox 格式 <code>[left, top, right, bottom]</code></li>
+  <li><strong>变更管理</strong>：使用 OpenSpec 流程（<code>/opsx-propose</code> → <code>/opsx-apply</code> → <code>/opsx-archive</code>）</li>
+  <li><strong>代码风格</strong>：Prettier + ESLint flat config</li>
+</ul>
+
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1e293b',
+      primaryTextColor: '#e4e4e7',
+      primaryBorderColor: '#3b82f6',
+      lineColor: '#3b82f6',
+      secondaryColor: '#18181c',
+      tertiaryColor: '#111114',
+      fontSize: '13px',
+      fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif',
+    },
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+  });
+</script>
+</body>
+</html>
