@@ -192,7 +192,9 @@ function ChunkCard({
 }
 
 function SubElement({ element }: { element: PdfElement }) {
-  const preview = (element.markdown || element.latex || element.html || '').slice(0, 80);
+  const isFormula = element.category_type === 'equation' || element.category_type === 'formula' || element.category_type === 'display_formula';
+  const raw = isFormula ? (element.latex || '') : (element.markdown || element.html || '');
+  const preview = raw.slice(0, 80);
   return (
     <div className="sub-element">
       <span className="sub-order">≡{element.order + 1}</span>

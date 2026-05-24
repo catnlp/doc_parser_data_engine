@@ -301,9 +301,13 @@ function RenderedContent({ element }: { element: PdfElement }) {
     );
   }
   if (element.category_type === 'equation' || element.category_type === 'formula' || element.category_type === 'display_formula') {
+    const latex = element.latex || '';
+    const content = element.category_type === 'display_formula'
+      ? `$$\n${latex}\n$$`
+      : `$${latex}$`;
     return (
       <Markdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
-        {element.latex}
+        {content}
       </Markdown>
     );
   }
