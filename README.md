@@ -10,7 +10,12 @@ doc_parser_data_engine/
 │   ├── api_ocr.py              # 主服务（布局检测 + OCR 识别 + 公式/表格 API）
 │   ├── requirements.txt        # Python 依赖
 │   ├── Dockerfile              # 容器化部署
-│   └── start.sh                # 开发启动脚本
+│   ├── start.sh                # 开发启动脚本
+│   └── skills/                 # 本地 ML 服务参考文档
+│       ├── doclayout/          # 版面分析 (PP-DocLayoutV3, :8765)
+│       ├── ocr-det/            # 文字检测 (PP-OCRv5, :8766)
+│       ├── formulanet/         # 公式识别→LaTeX (PP-FormulaNet, :8767)
+│       └── slanet/             # 表格识别→HTML (SLANet, :8768)
 │
 ├── frontend/                   # React + TypeScript 前端
 │   ├── src/
@@ -221,6 +226,21 @@ flowchart TD
 | `/api/health` | GET | 健康检查 |
 | `/api/layout` | POST | 版面分析（检测文本框/表格/公式/图片区域） |
 | `/api/parse` | POST | OCR 解析（对指定区域进行文字识别） |
+
+## 本地 ML 服务
+
+以下服务运行在 Mac 本机，通过 launchd 管理开机自启：
+
+| 服务 | 端口 | 模型 | 功能 |
+|------|------|------|------|
+| doclayout | 8765 | PP-DocLayoutV3 | 版面分析（标题/正文/表格/图片/公式） |
+| ocr-det | 8766 | PP-OCRv5_server_det | 文字检测（行位置 + 旋转框） |
+| formulanet | 8767 | PP-FormulaNet_plus-L | 公式识别 → LaTeX |
+| slanet | 8768 | SLANet_plus | 表格识别 → HTML |
+
+**流水线**: `doclayout(8765)` → 分类检测区域 → `ocr-det(8766)` 文字检测 / `formulanet(8767)` 公式 / `slanet(8768)` 表格 → 合并结果
+
+各服务的详细 API 文档和启动指令见 `backend/skills/<name>/SKILL.md`。
 
 ## Docker 部署
 
