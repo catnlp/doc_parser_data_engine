@@ -25,6 +25,7 @@ export function ChunkList() {
   const pageInfo = useAnnotationStore((s) => s.getPageInfo());
   const selectedChunkId = useAnnotationStore((s) => s.selectedChunkId);
   const hoveredChunkId = useAnnotationStore((s) => s.hoveredChunkId);
+  const selectedElementId = useAnnotationStore((s) => s.selectedElementId);
   const setSelectedChunkId = useAnnotationStore((s) => s.setSelectedChunkId);
   const setHoveredChunkId = useAnnotationStore((s) => s.setHoveredChunkId);
   const [searchText, setSearchText] = useState('');
@@ -43,6 +44,15 @@ export function ChunkList() {
       setExpandedIds(new Set(chunks.map((c) => c.id)));
     }
   }, [chunks]);
+
+  useEffect(() => {
+    if (!selectedElementId) return;
+    const chunk = chunks.find((c) => c.elements.some((el) => el.id === selectedElementId));
+    if (chunk) {
+      const el = document.querySelector(`[data-chunk-id="${chunk.id}"]`);
+      if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }, [selectedElementId, chunks]);
 
   const chunkSearchTexts = useMemo(() => {
     return chunks.map((chunk) =>

@@ -81,6 +81,21 @@ export function LeftPanel({ pageNumber, pageInfo, renderedImage }: LeftPanelProp
     });
   }, [selectedElementId]);
 
+  useEffect(() => {
+    if (!selectedChunkId || !containerRef.current) return;
+    const chunk = chunks.find((c) => c.id === selectedChunkId);
+    if (!chunk) return;
+    const u = chunk.unionBbox;
+    const centerX = ((u[0] + u[2]) / 2) * displayScale;
+    const centerY = ((u[1] + u[3]) / 2) * displayScale;
+    const container = containerRef.current;
+    container.scrollTo({
+      left: centerX - container.clientWidth / 2,
+      top: centerY - container.clientHeight / 2,
+      behavior: 'smooth',
+    });
+  }, [selectedChunkId, displayScale]);
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (toolMode !== 'create' || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
