@@ -117,7 +117,7 @@ async function callLocalOcrApi(
     }),
   });
   if (!resp.ok) throw new Error(`Local OCR API ${resp.status}`);
-  return resp.json() as unknown as { elements: Array<{ category_type: string; text: string }> };
+  return resp.json() as unknown as { elements: Array<{ category_type: string; text: string; confidence: number }> };
 }
 
 async function callOcrApi(
@@ -285,7 +285,7 @@ export async function parsePdfDocument(docId: string): Promise<void> {
         );
 
         // Get regular (non-equation, non-table) results through existing OCR flow
-        let regularElements: Array<{ category_type: string; text: string }> = [];
+        let regularElements: Array<{ category_type: string; text: string; confidence: number }> = [];
         if (regularBboxes.length > 0) {
           const regularResult = await callOcrApi(rendered.imageBase64, regularBboxes);
           regularElements = regularResult.elements;
@@ -299,6 +299,7 @@ export async function parsePdfDocument(docId: string): Promise<void> {
           latex?: string;
           html?: string;
           demoted?: boolean;
+          confidence?: number;
         }
         const ocrElements: Array<OcrElement | null> = new Array(layoutBboxes.length);
 
@@ -344,12 +345,14 @@ export async function parsePdfDocument(docId: string): Promise<void> {
             try {
               const fallbackResult = await callOcrApi(rendered.imageBase64, [bbox]);
               const text = fallbackResult.elements.map(e => e.text).filter(Boolean).join('\n') || '';
+              const conf = fallbackResult.elements[0]?.confidence;
               ocrElements[i] = {
                 category_type: 'text',
                 text,
                 demoted: true,
                 latex: '',
                 poly: toBBox(layoutResult.elements[i]?.poly || [0, 0, 0, 0]),
+                confidence: conf,
               };
             } catch {
               ocrElements[i] = {
@@ -365,11 +368,13 @@ export async function parsePdfDocument(docId: string): Promise<void> {
             try {
               const fallbackResult = await callOcrApi(rendered.imageBase64, [bbox]);
               const text = fallbackResult.elements[0]?.text || '';
+              const conf = fallbackResult.elements[0]?.confidence;
               ocrElements[i] = {
                 category_type: bbox.category_type,
                 text,
                 html: '',
                 poly: toBBox(layoutResult.elements[i]?.poly || [0, 0, 0, 0]),
+                confidence: conf,
               };
             } catch {
               ocrElements[i] = {
@@ -380,10 +385,12 @@ export async function parsePdfDocument(docId: string): Promise<void> {
               };
             }
           } else {
+            const regEl = regularElements[regularIdx++] || { text: '', confidence: 0 };
             ocrElements[i] = {
               category_type: bbox.category_type,
-              text: regularElements[regularIdx++]?.text || '',
+              text: regEl.text || '',
               poly: toBBox(layoutResult.elements[i]?.poly || [0, 0, 0, 0]),
+              confidence: regEl.confidence,
             };
           }
         }

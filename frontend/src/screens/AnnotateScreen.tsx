@@ -51,6 +51,7 @@ export default function AnnotateScreen() {
         markdown: (el.category_type !== 'equation' && el.category_type !== 'formula' && el.category_type !== 'display_formula' && el.category_type !== 'table') ? (el.text || '') : '',
         image_path: '',
         demoted: !!el.demoted,
+        confidence: el.confidence,
       }));
 
       pdfInfoList.push({ pdf_info: elements, page_info: { width: data.width, height: data.height } });

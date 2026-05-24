@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import { useDocumentListStore } from '../store/useDocumentListStore';
 import { parsePdfDocument } from '../utils/parsePdf';
 import { importDocumentFromZip } from '../utils/importZip';
+import { computeDocQuality } from '../utils/quality';
 import type { DocumentStatus, PdfDocument } from '../types/document';
 
 const STATUS_LABELS: Record<DocumentStatus, string> = {
@@ -20,6 +21,16 @@ const STATUS_COLORS: Record<DocumentStatus, string> = {
   error: '#EF4444',
   saved: '#F59E0B',
 };
+
+function confidenceColor(val: number): string {
+  if (val >= 0.9) return 'var(--color-success)';
+  if (val >= 0.7) return 'var(--color-warning)';
+  return 'var(--color-danger)';
+}
+
+function fmtPct(val: number): string {
+  return `${Math.round(val * 100)}%`;
+}
 
 async function exportDocumentAsZip(doc: PdfDocument) {
   const pages = doc.parsedData;
@@ -303,12 +314,38 @@ export function PdfListView() {
               className={`document-row ${doc.status === 'done' || doc.status === 'saved' ? 'clickable' : ''} ${doc.status === 'parsing' ? 'parsing' : ''}`}
               onClick={() => (doc.status === 'done' || doc.status === 'saved') && selectDocument(doc.id)}
             >
-              <div className="doc-info">
-                <span className="doc-name" title={doc.name}>{doc.name}</span>
-                {doc.pageCount > 0 && (
-                  <span className="doc-pages">{doc.pageCount} 页</span>
-                )}
+              <div className="doc-main">
+                <div className="doc-info">
+                  <span className="doc-name" title={doc.name}>{doc.name}</span>
+                  {doc.pageCount > 0 && (
+                    <span className="doc-pages">{doc.pageCount} 页</span>
+                  )}
+                </div>
+
+                {(doc.status === 'done' || doc.status === 'saved') && doc.parsedData.length > 0 && (() => {
+                  const q = computeDocQuality(doc);
+                  return (
+                    <div className="quality-summary">
+                      <span className="q-item" style={{ color: confidenceColor(q.avgLayoutScore) }}>
+                        布局 {fmtPct(q.avgLayoutScore)}
+                      </span>
+                      <span className="q-item" style={{ color: q.hasOcrConfidence ? confidenceColor(q.avgOcrConfidence!) : 'var(--color-text-muted)' }}>
+                        OCR {q.hasOcrConfidence ? fmtPct(q.avgOcrConfidence!) : '—'}
+                      </span>
+                      {q.demotedCount > 0 && (
+                        <span className="q-item q-warn">⚠{q.demotedCount}降级</span>
+                      )}
+                      {q.emptyCount > 0 && (
+                        <span className="q-item q-muted">○{q.emptyCount}空白</span>
+                      )}
+                      {q.failedPageCount > 0 && (
+                        <span className="q-item q-danger">✕{q.failedPageCount}失败</span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
+
               <div className="doc-actions">
                 <span
                   className="status-badge"

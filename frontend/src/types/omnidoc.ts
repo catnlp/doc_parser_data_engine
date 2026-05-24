@@ -38,6 +38,7 @@ export interface PdfElement {
   markdown: string;
   image_path: string;
   demoted?: boolean;
+  confidence?: number;
 }
 
 export interface PdfInfo {

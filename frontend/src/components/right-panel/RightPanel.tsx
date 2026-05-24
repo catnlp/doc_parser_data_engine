@@ -7,6 +7,7 @@ import 'katex/dist/katex.min.css';
 import { useAnnotationStore } from '../../store/useAnnotationStore';
 import { TypeSelector } from './TypeSelector';
 import { ContentEditor } from './ContentEditor';
+import { ParseQualityPanel } from './ParseQualityPanel';
 import { TYPE_ICONS } from '../../constants/elementTypes';
 import DOMPurify from 'dompurify';
 
@@ -53,10 +54,26 @@ function CroppedFigure({ pageBase64, poly }: { pageBase64: string; poly: number[
 import type { PdfElement, ElementType } from '../../types/omnidoc';
 
 export function RightPanel() {
+  const [tab, setTab] = useState<'elements' | 'analysis'>('elements');
+
   return (
     <div className="right-panel">
+      <div className="panel-tabs">
+        <button
+          className={`panel-tab ${tab === 'elements' ? 'active' : ''}`}
+          onClick={() => setTab('elements')}
+        >
+          元素列表
+        </button>
+        <button
+          className={`panel-tab ${tab === 'analysis' ? 'active' : ''}`}
+          onClick={() => setTab('analysis')}
+        >
+          📊 解析分析
+        </button>
+      </div>
       <div className="right-panel-content">
-        <ElementList />
+        {tab === 'elements' ? <ElementList /> : <ParseQualityPanel />}
       </div>
     </div>
   );
