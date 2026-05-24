@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import base64
 import cv2
 import json
@@ -12,6 +12,7 @@ import time
 
 from paddleocr import LayoutDetection
 from paddleocr import PaddleOCR
+from pipeline import parse_elements, check_all_services, layout_analyze
 
 app = FastAPI(title="Document Parsing Services")
 
@@ -89,11 +90,25 @@ async def global_exception_handler(request: Request, exc: Exception):
 async def health_check():
     ocr_status = "loaded" if ocr_pipeline is not None else "loading"
     layout_status = "loaded" if layout_pipeline is not None else "loading"
-    status_code = 200 if ocr_status == "loaded" and layout_status == "loaded" else 503
-    status_str = "ok" if status_code == 200 else "initializing"
+    
+    remote_status = {}
+    try:
+        report = await check_all_services()
+        for s in report.services:
+            remote_status[s.name] = {
+                "available": s.available,
+                "latency_ms": s.latency_ms,
+            }
+    except Exception:
+        remote_status["error"] = "unable to check remote services"
+
     return JSONResponse(
-        status_code=status_code,
-        content={"status": status_str, "models": {"ocr": ocr_status, "layout": layout_status}},
+        status_code=200,
+        content={
+            "status": "ok",
+            "models": {"ocr": ocr_status, "layout": layout_status},
+            "remote_services": remote_status,
+        },
     )
 
 @app.post("/api/layout")
@@ -138,7 +153,7 @@ async def detect_layout(req: LayoutRequest):
         raise
 
 @app.post("/api/parse")
-async def parse_elements(req: OCRParseRequest):
+async def parse_elements_endpoint(req: OCRParseRequest):
     try:
         img_data = req.image_base64.split(",")[-1] if "," in req.image_base64 else req.image_base64
         img_bytes = base64.b64decode(img_data)
@@ -147,58 +162,11 @@ async def parse_elements(req: OCRParseRequest):
         if img is None:
             raise HTTPException(status_code=400, detail="Invalid image data")
 
-        pipeline = get_ocr()
-        h, w = img.shape[:2]
-        results = []
-
-        for bbox in req.layout_bboxes:
-            coords = bbox.poly
-            if len(coords) < 8:
-                continue
-
-            MARGIN = 20
-            xs = [coords[i] for i in range(0, 8, 2)]
-            ys = [coords[i] for i in range(1, 8, 2)]
-            x1, y1 = max(0, int(min(xs)) - MARGIN), max(0, int(min(ys)) - MARGIN)
-            x2, y2 = min(w, int(max(xs)) + MARGIN), min(h, int(max(ys)) + MARGIN)
-
-            if x2 <= x1 or y2 <= y1:
-                results.append({"category_type": bbox.category_type, "text": "", "confidence": 0})
-                continue
-
-            crop = img[y1:y2, x1:x2]
-
-            if crop.size == 0:
-                results.append({"category_type": bbox.category_type, "text": "", "confidence": 0})
-                continue
-
-            ocr_res = pipeline.predict(crop)
-
-            text_parts = []
-            conf = 0.0
-            count = 0
-
-            if ocr_res:
-                for page in ocr_res:
-                    rec_texts = page.get('rec_texts')
-                    if rec_texts:
-                        text_parts.extend(rec_texts)
-                        rec_scores = page.get('rec_scores')
-                        if rec_scores:
-                            conf += sum(rec_scores)
-                            count += len(rec_scores)
-                    elif hasattr(page, 'rec_texts') and page.rec_texts:
-                        text_parts.extend(page.rec_texts)
-                        if hasattr(page, 'rec_scores'):
-                            conf += sum(page.rec_scores)
-                            count += len(page.rec_scores)
-
-            text_out = "\n".join(text_parts) if req.merge_text else text_parts
-            results.append({
-                "category_type": bbox.category_type,
-                "text": text_out,
-                "confidence": conf / count if count > 0 else 0
-            })
+        results = await parse_elements(
+            image_base64=req.image_base64,
+            layout_bboxes=req.layout_bboxes,
+            merge_text=req.merge_text,
+        )
         return {"elements": results}
     except Exception as e:
         raise
