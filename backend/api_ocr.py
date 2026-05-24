@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 import base64
 import cv2
 import json
@@ -10,7 +10,6 @@ import numpy as np
 import os
 import time
 
-from paddleocr import LayoutDetection
 from paddleocr import PaddleOCR
 from pipeline import parse_elements, check_all_services, layout_analyze
 
@@ -25,7 +24,6 @@ app.add_middleware(
 )
 
 ocr_pipeline = None
-layout_pipeline = None
 
 def get_ocr():
     global ocr_pipeline
@@ -34,14 +32,6 @@ def get_ocr():
         print("Initializing OCR (PP-OCRv5)...")
         ocr_pipeline = PaddleOCR(ocr_version="PP-OCRv5", lang="ch")
     return ocr_pipeline
-
-def get_layout():
-    global layout_pipeline
-    if layout_pipeline is None:
-        os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
-        print("Initializing Layout Analysis (PP-DocLayoutV2)...")
-        layout_pipeline = LayoutDetection(model_name="PP-DocLayoutV2")
-    return layout_pipeline
 
 class LayoutBBox(BaseModel):
     poly: List[float]
@@ -88,8 +78,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/api/health")
 async def health_check():
-    ocr_status = "loaded" if ocr_pipeline is not None else "loading"
-    layout_status = "loaded" if layout_pipeline is not None else "loading"
+    ocr = get_ocr()
+    ocr_status = "loaded" if ocr is not None else "loading"
     
     remote_status = {}
     try:
@@ -106,7 +96,7 @@ async def health_check():
         status_code=200,
         content={
             "status": "ok",
-            "models": {"ocr": ocr_status, "layout": layout_status},
+            "models": {"ocr": ocr_status, "layout": "remote (doclayout:8765)"},
             "remote_services": remote_status,
         },
     )
@@ -114,41 +104,8 @@ async def health_check():
 @app.post("/api/layout")
 async def detect_layout(req: LayoutRequest):
     try:
-        img_data = req.image_base64.split(",")[-1] if "," in req.image_base64 else req.image_base64
-        img_bytes = base64.b64decode(img_data)
-        img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
-        if img is None:
-            raise HTTPException(status_code=400, detail="Invalid image data")
-
-        pipeline = get_layout()
-        result = pipeline.predict(img, batch_size=1, threshold=req.threshold, layout_nms=req.layout_nms)
-
-        if not result:
-            return {"page_info": {"height": img.shape[0], "width": img.shape[1]}, "elements": []}
-
-        page_result = result[0]
-        elements = []
-        boxes = page_result.get('boxes', []) if isinstance(page_result, dict) else page_result.boxes
-        for i, item in enumerate(boxes):
-            # item coordinate format: [ymin, xmin, ymax, xmax] or [xmin, ymin, xmax, ymax]
-            # Based on test, it is [xmin, ymin, xmax, ymax]
-            x1, y1, x2, y2 = item['coordinate']
-
-            # 8-point polygon format expected by frontend
-            # Format: [top-left-x, top-left-y, top-right-x, top-right-y, bottom-right-x, bottom-right-y, bottom-left-x, bottom-left-y]
-            poly = [x1, y1, x2, y1, x2, y2, x1, y2]
-
-            elements.append({
-                "category_type": item['label'],
-                "poly": [round(v, 2) for v in poly],
-                "score": round(item['score'], 4),
-                "order": i
-            })
-
-        return {
-            "page_info": {"height": int(img.shape[0]), "width": int(img.shape[1])},
-            "elements": elements
-        }
+        result = await layout_analyze(req.image_base64)
+        return result
     except Exception as e:
         raise
 
