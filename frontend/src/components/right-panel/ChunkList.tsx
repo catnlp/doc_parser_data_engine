@@ -1,4 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
+import Markdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import { useAnnotationStore } from '../../store/useAnnotationStore';
 import { computeChunks, detectColumns, getPageWidth } from '../../utils/chunk';
 import { TYPE_ICONS } from '../../constants/elementTypes';
@@ -200,7 +204,15 @@ function SubElement({ element }: { element: PdfElement }) {
       <span className="sub-order">≡{element.order + 1}</span>
       <span className="sub-type-icon">{TYPE_ICONS[element.category_type] || '📝'}</span>
       <span className="sub-type">{element.category_type}</span>
-      <span className="sub-preview">{preview || '(空)'}</span>
+      {isFormula && element.latex ? (
+        <span className="sub-formula">
+          <Markdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+            {`$${element.latex}$`}
+          </Markdown>
+        </span>
+      ) : (
+        <span className="sub-preview">{preview || '(空)'}</span>
+      )}
     </div>
   );
 }

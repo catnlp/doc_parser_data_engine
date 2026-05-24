@@ -1052,3 +1052,15 @@ button:disabled {
   flex: 1;
   min-width: 0;
 }
+
+.sub-formula {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--color-text-primary);
+}
+
+.sub-formula .katex {
+  font-size: 1em;
+}
