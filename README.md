@@ -2,6 +2,10 @@
 
 PDF 文档解析与标注工具——将 PDF 转换为结构化数据，支持版面分析、OCR 识别、公式/表格提取，并提供可视化标注界面。
 
+![项目](doc/images/project.png)
+
+![详细](doc/images/detail.png)
+
 ## 项目架构
 
 ```
