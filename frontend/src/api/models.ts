@@ -19,6 +19,8 @@ export interface ParsedElement {
   category_type: string;
   text: string;
   confidence: number;
+  latex?: string;
+  html?: string;
 }
 
 async function postJson<T>(url: string, body: unknown, timeout = 30000): Promise<T> {
@@ -94,14 +96,16 @@ export async function callOcrModel(
     );
     return response.elements.map((el, i) => {
       const layoutEl = layoutResult.elements[i];
+      const isFormula = el.category_type === 'equation' || el.category_type === 'formula' || el.category_type === 'display_formula';
+      const isTable = el.category_type === 'table';
       return {
         id: `el_${i}_${Date.now()}`,
         category_type: el.category_type as PdfElement['category_type'],
         poly: layoutEl?.poly || [0, 0, 0, 0],
         order: i,
-        latex: (el.category_type === 'equation' || el.category_type === 'formula' || el.category_type === 'display_formula') ? el.text : '',
-        html: el.category_type === 'table' ? el.text : '',
-        markdown: el.text || '',
+        latex: isFormula ? (el.latex || el.text) : '',
+        html: isTable ? (el.html || el.text) : '',
+        markdown: isFormula || isTable ? '' : (el.text || ''),
         image_path: '',
       };
     });
