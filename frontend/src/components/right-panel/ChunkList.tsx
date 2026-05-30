@@ -3,10 +3,55 @@ import Markdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
+import DOMPurify from 'dompurify';
 import { useAnnotationStore } from '../../store/useAnnotationStore';
 import { computeChunks, detectColumns, getPageWidth } from '../../utils/chunk';
 import { TYPE_ICONS } from '../../constants/elementTypes';
 import type { Chunk, PdfElement } from '../../types/omnidoc';
+
+const IS_FORMULA = (type: string) => type === 'equation' || type === 'formula' || type === 'display_formula';
+const IS_FIGURE = (type: string) => type === 'figure' || type === 'image' || type === 'chart';
+const IS_TABLE = (type: string) => type === 'table';
+
+function elementToMarkdown(el: PdfElement): string {
+  if (IS_FORMULA(el.category_type)) {
+    return el.latex ? `$$${el.latex}$$` : '';
+  }
+  return el.markdown || '';
+}
+
+const cropCache = new Map<string, string>();
+
+function CroppedFigure({ pageBase64, poly }: { pageBase64: string; poly: number[] }) {
+  const [cropped, setCropped] = useState<string | null>(null);
+
+  useEffect(() => {
+    const key = `${pageBase64.slice(-40)}_${poly.join(',')}`;
+    if (cropCache.has(key)) {
+      setCropped(cropCache.get(key)!);
+      return;
+    }
+    if (poly.length < 4) return;
+    const sx = poly[0], sy = poly[1], sw = poly[2] - sx, sh = poly[3] - sy;
+    if (sw <= 0 || sh <= 0) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = sw;
+    canvas.height = sh;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      cropCache.set(key, canvas.toDataURL('image/png'));
+      setCropped(cropCache.get(key)!);
+    };
+    img.src = pageBase64;
+  }, [pageBase64, poly]);
+
+  if (cropped) return <img src={cropped} alt="figure" className="chunk-preview-img" />;
+  return <div style={{ height: 40, background: '#f0f0f0', borderRadius: 4 }} />;
+}
 
 function getChunkIcon(type: Chunk['type']): string {
   switch (type) {
@@ -27,6 +72,8 @@ function getChunkTypeLabel(type: Chunk['type']): string {
 export function ChunkList() {
   const elements = useAnnotationStore((s) => s.getPageElements());
   const pageInfo = useAnnotationStore((s) => s.getPageInfo());
+  const currentPage = useAnnotationStore((s) => s.currentPage);
+  const renderedPages = useAnnotationStore((s) => s.renderedPages);
   const selectedChunkId = useAnnotationStore((s) => s.selectedChunkId);
   const hoveredChunkId = useAnnotationStore((s) => s.hoveredChunkId);
   const selectedElementId = useAnnotationStore((s) => s.selectedElementId);
@@ -36,18 +83,14 @@ export function ChunkList() {
   const [filterType, setFilterType] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
+  const pageBase64 = renderedPages[currentPage - 1]?.imageBase64;
+
   const chunks = useMemo(() => {
     if (elements.length === 0) return [];
     const pageWidth = getPageWidth(elements, pageInfo?.width);
     const columnLayout = detectColumns(elements, pageWidth);
     return computeChunks(elements, columnLayout, pageWidth);
   }, [elements, pageInfo]);
-
-  useEffect(() => {
-    if (chunks.length > 0) {
-      setExpandedIds(new Set(chunks.map((c) => c.id)));
-    }
-  }, [chunks]);
 
   useEffect(() => {
     if (!selectedElementId) return;
@@ -126,6 +169,7 @@ export function ChunkList() {
         <ChunkCard
           key={chunk.id}
           chunk={chunk}
+          pageBase64={pageBase64}
           isSelected={chunk.id === selectedChunkId}
           isHovered={chunk.id === hoveredChunkId}
           isExpanded={expandedIds.has(chunk.id)}
@@ -145,6 +189,7 @@ export function ChunkList() {
 
 function ChunkCard({
   chunk,
+  pageBase64,
   isSelected,
   isHovered,
   isExpanded,
@@ -154,6 +199,7 @@ function ChunkCard({
   onToggleExpand,
 }: {
   chunk: Chunk;
+  pageBase64: string | undefined;
   isSelected: boolean;
   isHovered: boolean;
   isExpanded: boolean;
@@ -184,11 +230,38 @@ function ChunkCard({
         </button>
       </div>
 
-      {isExpanded && (
+      {isExpanded ? (
         <div className="chunk-elements">
           {chunk.elements.map((el) => (
             <SubElement key={el.id} element={el} />
           ))}
+        </div>
+      ) : (
+        <div className="chunk-preview">
+          {chunk.elements.map((el) => {
+            if (IS_FIGURE(el.category_type)) {
+              if (pageBase64 && el.poly.length >= 4) {
+                return <CroppedFigure key={el.id} pageBase64={pageBase64} poly={el.poly} />;
+              }
+              return null;
+            }
+            if (IS_TABLE(el.category_type) && el.html) {
+              return (
+                <div
+                  key={el.id}
+                  className="chunk-preview-table"
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(el.html) }}
+                />
+              );
+            }
+            const md = elementToMarkdown(el);
+            if (!md) return null;
+            return (
+              <Markdown key={el.id} remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                {md}
+              </Markdown>
+            );
+          })}
         </div>
       )}
     </div>

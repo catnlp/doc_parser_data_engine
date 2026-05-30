@@ -188,6 +188,7 @@ export function LeftPanel({ pageNumber, pageInfo, renderedImage }: LeftPanelProp
               const isHovered = el.id === hoveredElementId;
               const inSelectedChunk = selectedChunkElementIds.has(el.id);
               const inHoveredChunk = hoveredChunkElementIds.has(el.id);
+              const hasHighlight = isSelected || isHovered || inSelectedChunk || inHoveredChunk;
               const hasChunkHighlight = !selectedElementId && !hoveredElementId && (inSelectedChunk || inHoveredChunk);
               const bx = bbox.x * displayScale;
               const by = bbox.y * displayScale;
@@ -197,6 +198,9 @@ export function LeftPanel({ pageNumber, pageInfo, renderedImage }: LeftPanelProp
                 : inHoveredChunk ? hexToRgba(color, 0.05)
                 : 'transparent';
               const strokeWidth = isSelected ? 3 : isHovered ? 2 : hasChunkHighlight ? 1.5 : 1;
+              const labelText = TYPE_LABELS[el.category_type] || el.category_type;
+              const badgeWidth = labelText.length * 7 + 12;
+              const badgeHeight = 16;
               return (
                 <g key={el.id}>
                   <polygon
@@ -211,9 +215,33 @@ export function LeftPanel({ pageNumber, pageInfo, renderedImage }: LeftPanelProp
                     onMouseEnter={() => setHoveredElementId(el.id)}
                     onMouseLeave={() => setHoveredElementId(null)}
                   />
-                  <text x={bx + 4} y={by + 14} fill="#fff" fontSize="10px" fontWeight="700" style={{ pointerEvents: 'none' }}>
-                    {el.order + 1}
-                  </text>
+                  {hasHighlight ? (
+                    <g style={{ pointerEvents: 'none' }}>
+                      <rect
+                        x={bx}
+                        y={by}
+                        width={badgeWidth}
+                        height={badgeHeight}
+                        rx={3}
+                        fill={color}
+                        opacity={0.88}
+                      />
+                      <text
+                        x={bx + 5}
+                        y={by + 11.5}
+                        fill="#fff"
+                        fontSize="10px"
+                        fontWeight="600"
+                        fontFamily="system-ui, -apple-system, sans-serif"
+                      >
+                        {labelText}
+                      </text>
+                    </g>
+                  ) : (
+                    <text x={bx + 4} y={by + 14} fill="#fff" fontSize="10px" fontWeight="700" style={{ pointerEvents: 'none' }}>
+                      {el.order + 1}
+                    </text>
+                  )}
                 </g>
               );
             })}
