@@ -7,7 +7,6 @@ import 'katex/dist/katex.min.css';
 import { useAnnotationStore } from '../../store/useAnnotationStore';
 import { TypeSelector } from './TypeSelector';
 import { ContentEditor } from './ContentEditor';
-import { ParseQualityPanel } from './ParseQualityPanel';
 import { ChunkList } from './ChunkList';
 import { TYPE_ICONS } from '../../constants/elementTypes';
 import DOMPurify from 'dompurify';
@@ -55,7 +54,7 @@ function CroppedFigure({ pageBase64, poly }: { pageBase64: string; poly: number[
 import type { PdfElement, ElementType } from '../../types/omnidoc';
 
 export function RightPanel() {
-  const [tab, setTab] = useState<'chunks' | 'elements' | 'analysis'>('chunks');
+  const [tab, setTab] = useState<'chunks' | 'elements' | 'markdown'>('chunks');
 
   return (
     <div className="right-panel">
@@ -73,15 +72,62 @@ export function RightPanel() {
           元素列表
         </button>
         <button
-          className={`panel-tab ${tab === 'analysis' ? 'active' : ''}`}
-          onClick={() => setTab('analysis')}
+          className={`panel-tab ${tab === 'markdown' ? 'active' : ''}`}
+          onClick={() => setTab('markdown')}
         >
-          📊 解析分析
+          📄 Markdown
         </button>
       </div>
       <div className="right-panel-content">
-        {tab === 'chunks' ? <ChunkList /> : tab === 'elements' ? <ElementList /> : <ParseQualityPanel />}
+        {tab === 'chunks' ? <ChunkList /> : tab === 'elements' ? <ElementList /> : <MarkdownPreview />}
       </div>
+    </div>
+  );
+}
+
+function MarkdownPreview() {
+  const elements = useAnnotationStore((s) => s.getPageElements());
+  const currentPage = useAnnotationStore((s) => s.currentPage);
+  const renderedPages = useAnnotationStore((s) => s.renderedPages);
+  const pageBase64 = renderedPages[currentPage - 1]?.imageBase64;
+
+  const sorted = [...elements].sort((a, b) => a.order - b.order);
+
+  return (
+    <div className="markdown-preview">
+      {sorted.map((el) => {
+        if (el.category_type === 'equation' || el.category_type === 'formula' || el.category_type === 'display_formula') {
+          return (
+            <Markdown key={el.id} remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+              {el.latex ? `$$${el.latex}$$` : el.markdown || ''}
+            </Markdown>
+          );
+        }
+        if (el.category_type === 'table') {
+          return (
+            <div
+              key={el.id}
+              className="markdown-preview-table"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(el.html || '<p><em>[Table]</em></p>') }}
+            />
+          );
+        }
+        if (el.category_type === 'figure' || el.category_type === 'image' || el.category_type === 'chart') {
+          if (pageBase64 && el.poly.length >= 4) {
+            return <CroppedFigure key={el.id} pageBase64={pageBase64} poly={el.poly} />;
+          }
+          return null;
+        }
+        if (!el.markdown) return null;
+        let content = el.markdown;
+        if (el.category_type === 'doc_title') content = `# ${content}`;
+        else if (el.category_type === 'paragraph_title') content = `## ${content}`;
+        return (
+          <Markdown key={el.id} remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+            {content}
+          </Markdown>
+        );
+      })}
     </div>
   );
 }

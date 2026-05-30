@@ -1103,3 +1103,60 @@ button:disabled {
 .sub-formula .katex {
   font-size: 1em;
 }
+
+.markdown-preview {
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--color-text-primary);
+  overflow-y: auto;
+  height: 100%;
+}
+
+.markdown-preview > * {
+  margin-bottom: 12px;
+}
+
+.markdown-preview img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 8px 0;
+}
+
+.markdown-preview h1 { font-size: 1.5em; font-weight: 700; margin-top: 16px; }
+.markdown-preview h2 { font-size: 1.3em; font-weight: 600; margin-top: 14px; }
+.markdown-preview h3 { font-size: 1.1em; font-weight: 600; margin-top: 12px; }
+
+.markdown-preview-table {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.markdown-preview-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.markdown-preview-table th,
+.markdown-preview-table td {
+  border: 1px solid var(--color-border);
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.markdown-preview-table th {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+
+.markdown-preview .katex-display {
+  margin: 12px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.markdown-preview p:empty {
+  display: none;
+}
