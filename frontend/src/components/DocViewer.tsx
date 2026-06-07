@@ -38,8 +38,15 @@ export function DocViewer() {
   const flipLockRef = useRef(false);
   const [displayScale, setDisplayScale] = useState(1);
   const [displayWidth, setDisplayWidth] = useState(600);
+  const [animating, setAnimating] = useState(false);
 
   currentPageRef.current = currentPage;
+
+  useEffect(() => {
+    setAnimating(true);
+    const t = setTimeout(() => setAnimating(false), 300);
+    return () => clearTimeout(t);
+  }, [currentPage]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -75,9 +82,20 @@ export function DocViewer() {
       e.preventDefault();
       flipPage(e.deltaY);
     };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (toolMode === 'create') return;
+      if (e.key === 'ArrowDown' || e.key === 'PageDown') { e.preventDefault(); flipPage(1); }
+      else if (e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); flipPage(-1); }
+      else if (e.key === 'Home') { e.preventDefault(); setCurrentPage(1); }
+      else if (e.key === 'End') { e.preventDefault(); setCurrentPage(totalPages); }
+    };
     el.addEventListener('wheel', handler, { passive: false });
-    return () => el.removeEventListener('wheel', handler);
-  }, [toolMode, flipPage]);
+    window.addEventListener('keydown', keyHandler);
+    return () => {
+      el.removeEventListener('wheel', handler);
+      window.removeEventListener('keydown', keyHandler);
+    };
+  }, [toolMode, flipPage, totalPages, setCurrentPage]);
 
   const handleElementClick = useCallback((el: PdfElement) => {
     setSelectedElementId(el.id);
@@ -116,7 +134,7 @@ export function DocViewer() {
       </div>
       <div ref={containerRef} className="doc-viewer-single">
         <div style={{ position: 'relative', display: 'inline-block', lineHeight: 0, backgroundColor: '#fff', width: displayWidth }}>
-          <img src={rp.imageBase64} alt={`Page ${currentPage}`} style={{ width: displayWidth, height: 'auto', display: 'block' }} />
+          <img src={rp.imageBase64} alt={`Page ${currentPage}`} className={`doc-page-img ${animating ? 'fading' : ''}`} style={{ width: displayWidth }} />
           {bboxVisible && (
             <svg
               width={displayWidth} height={height}

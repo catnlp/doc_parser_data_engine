@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { useAnnotationStore } from '../store/useAnnotationStore';
 
-export function ThumbnailNavigator() {
+export function DocumentOutline() {
   const currentPage = useAnnotationStore((s) => s.currentPage);
   const pdfInfo = useAnnotationStore((s) => s.pdfInfo);
   const setCurrentPage = useAnnotationStore((s) => s.setCurrentPage);
@@ -38,7 +38,8 @@ export function ThumbnailNavigator() {
               className={`toc-item ${item.level === 0 ? 'toc-level-0' : 'toc-level-1'} ${item.page === currentPage ? 'toc-active' : ''}`}
               onClick={() => handleTocClick(item.page, item.elementId)}
             >
-              {item.text}
+              <span className="toc-text">{item.text}</span>
+              <span className="toc-page">第{item.page}页</span>
             </div>
           ))}
         </div>

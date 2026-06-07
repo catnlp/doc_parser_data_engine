@@ -51,7 +51,10 @@ export function ResultPanel() {
   const renderedPages = useAnnotationStore((s) => s.renderedPages);
   const contentRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const currentPageRef = useRef(currentPage);
   const lastFlipTimeRef = useRef(0);
+
+  currentPageRef.current = currentPage;
 
   const allPages = useMemo(() => {
     return pdfInfo.map((info, pageIdx) => ({
@@ -68,14 +71,14 @@ export function ResultPanel() {
       (entries) => {
         if (Date.now() - lastFlipTimeRef.current < 800) return;
         let maxRatio = 0;
-        let maxPage = currentPage;
+        let maxPage = currentPageRef.current;
         for (const e of entries) {
           if (e.intersectionRatio > maxRatio) {
             maxRatio = e.intersectionRatio;
             maxPage = Number((e.target as HTMLElement).dataset.page);
           }
         }
-        if (maxRatio > 0.3 && maxPage !== currentPage) {
+        if (maxRatio > 0.3 && maxPage !== currentPageRef.current) {
           setCurrentPage(maxPage);
         }
       },
@@ -84,7 +87,7 @@ export function ResultPanel() {
 
     observerRef.current = observer;
     return () => observer.disconnect();
-  }, [currentPage, setCurrentPage]);
+  }, [setCurrentPage]);
 
   useEffect(() => {
     const observer = observerRef.current;

@@ -15,6 +15,8 @@ export function ChatPanel() {
   const currentPage = useAnnotationStore((s) => s.currentPage);
   const elements = useAnnotationStore((s) => s.getPageElements());
   const setP3Content = useAnnotationStore((s) => s.setP3Content);
+  const setSelectedContent = useAnnotationStore((s) => s.setSelectedContent);
+  const setSelectedElementId = useAnnotationStore((s) => s.setSelectedElementId);
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -51,8 +53,12 @@ export function ChatPanel() {
     setLoading(true);
 
     const pageContent = buildPageContent();
-    const ctx = selectedContent ? `选中内容:\n${selectedContent}\n\n` : '';
-    const prompt = `${ctx}当前页(第${currentPage}页)内容:\n${pageContent.slice(0, 3000)}\n\n用户: ${input}`;
+    let prompt: string;
+    if (selectedContent) {
+      prompt = `用户选中的文档内容:\n${selectedContent}\n\n用户: ${input}`;
+    } else {
+      prompt = `当前页(第${currentPage}页)内容:\n${pageContent.slice(0, 3000)}\n\n用户: ${input}`;
+    }
 
     addChatMessage({ role: 'assistant', content: '' });
     let accumulated = '';
@@ -102,9 +108,17 @@ export function ChatPanel() {
         <span>AI 对话</span>
         <button className="chat-clear-btn" onClick={clearChat}>清空</button>
       </div>
-      {selectedContent && (
+      {selectedContent ? (
         <div className="chat-context">
-          已选中: {selectedContent.slice(0, 80)}...
+          <span className="chat-context-text">已选中: {selectedContent.slice(0, 60)}...</span>
+          <button
+            className="chat-context-clear"
+            onClick={() => { setSelectedContent(''); setSelectedElementId(null); }}
+          >×</button>
+        </div>
+      ) : (
+        <div className="chat-context muted">
+          <span className="chat-context-text">上下文: 第{currentPage}页全文</span>
         </div>
       )}
       <div className="chat-messages" ref={listRef}>

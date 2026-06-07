@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useDocumentListStore } from '../store/useDocumentListStore';
 import { useAnnotationStore } from '../store/useAnnotationStore';
 import { FourPanelLayout } from '../components/FourPanelLayout';
-import { ThumbnailNavigator } from '../components/ThumbnailNavigator';
+import { DocumentOutline } from '../components/DocumentOutline';
 import { DocViewer } from '../components/DocViewer';
 import { ResultPanel } from '../components/ResultPanel';
 import { ChatPanel } from '../components/ChatPanel';
@@ -95,7 +95,7 @@ export default function AnnotateScreen() {
           { initialWidth: 20, minWidth: 15 },
         ]}
       >
-        <ThumbnailNavigator />
+        <DocumentOutline />
         <DocViewer />
         <ResultPanel />
         <ChatPanel />
