@@ -132,7 +132,7 @@ function MarkdownPreview() {
   );
 }
 
-function ElementList() {
+export function ElementList() {
   const elements = useAnnotationStore((s) => s.getPageElements());
   const selectedElementId = useAnnotationStore((s) => s.selectedElementId);
   const hoveredElementId = useAnnotationStore((s) => s.hoveredElementId);

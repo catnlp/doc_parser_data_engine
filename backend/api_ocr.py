@@ -1,15 +1,18 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse, Response
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import base64
 import cv2
 import json
 import numpy as np
 import os
 import time
+import io
 
+import httpx
+from openai import OpenAI
 from paddleocr import PaddleOCR
 from pipeline import parse_elements, check_all_services, layout_analyze
 
@@ -127,6 +130,188 @@ async def parse_elements_endpoint(req: OCRParseRequest):
         return {"elements": results}
     except Exception as e:
         raise
+
+# ── AI Companion Reading ──────────────────────────────────────
+
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "sk-558df2e5f3dd4592b498128243c032ef")
+DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro")
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+
+_client: Optional[OpenAI] = None
+
+def _get_client() -> OpenAI:
+    global _client
+    if _client is None:
+        _client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
+    return _client
+
+AI_SYSTEM_PROMPTS = {
+    "translate": "You are a professional translator. Translate the following text accurately while preserving the meaning, tone, and formatting. Output only the translated text without any explanations.",
+    "explain": "You are a knowledgeable assistant. Explain the following text clearly and concisely. Use markdown formatting for readability. Keep explanations focused and avoid unnecessary tangents.",
+    "summarize": "You are a summarization expert. Summarize the following content concisely, capturing all key points. Use markdown formatting with bullet points where appropriate.",
+    "chat": "You are a helpful document assistant. Answer questions about the document content provided in context. Be concise and accurate. Use markdown formatting.",
+}
+
+
+class AIActionRequest(BaseModel):
+    action: str
+    content: str
+    params: dict = {}
+
+
+class AIActionResponse(BaseModel):
+    result: str
+
+
+@app.post("/api/ai/action", response_model=AIActionResponse)
+async def ai_action(req: AIActionRequest):
+    try:
+        system_prompt = AI_SYSTEM_PROMPTS.get(req.action, AI_SYSTEM_PROMPTS["chat"])
+        target_lang = req.params.get("target_lang", "Chinese")
+
+        if req.action == "translate":
+            user_prompt = f"Translate the following text to {target_lang}:\n\n{req.content}"
+        elif req.action == "explain":
+            user_prompt = f"Please explain the following text:\n\n{req.content}"
+        elif req.action == "summarize":
+            user_prompt = f"Please summarize the following content:\n\n{req.content}"
+        elif req.action == "chat":
+            user_prompt = req.content
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown action: {req.action}")
+
+        client = _get_client()
+        resp = client.chat.completions.create(
+            model=DEEPSEEK_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.3,
+            max_tokens=4096,
+        )
+        result = resp.choices[0].message.content or ""
+        return AIActionResponse(result=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ai/stream")
+async def ai_stream(req: AIActionRequest):
+    system_prompt = AI_SYSTEM_PROMPTS.get(req.action, AI_SYSTEM_PROMPTS["chat"])
+    target_lang = req.params.get("target_lang", "Chinese")
+
+    if req.action == "translate":
+        user_prompt = f"Translate the following text to {target_lang}:\n\n{req.content}"
+    elif req.action == "explain":
+        user_prompt = f"Please explain the following text:\n\n{req.content}"
+    elif req.action == "summarize":
+        user_prompt = f"Please summarize the following content:\n\n{req.content}"
+    else:
+        user_prompt = req.content
+
+    async def generate():
+        try:
+            client = _get_client()
+            stream = client.chat.completions.create(
+                model=DEEPSEEK_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.3,
+                max_tokens=4096,
+                stream=True,
+            )
+            for chunk in stream:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    yield f"data: {json.dumps({'content': delta.content})}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+# ── Format Conversion ─────────────────────────────────────────
+
+class ConvertRequest(BaseModel):
+    format: str
+    markdown: str
+    title: str = "Document"
+
+
+@app.post("/api/convert")
+async def convert_document(req: ConvertRequest):
+    try:
+        if req.format == "html":
+            html = markdown_to_html(req.markdown, req.title)
+            return Response(
+                content=html,
+                media_type="text/html",
+                headers={"Content-Disposition": f"attachment; filename={req.title}.html"},
+            )
+        elif req.format == "docx":
+            docx_bytes = markdown_to_docx(req.markdown, req.title)
+            return StreamingResponse(
+                io.BytesIO(docx_bytes),
+                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                headers={"Content-Disposition": f"attachment; filename={req.title}.docx"},
+            )
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported format: {req.format}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def markdown_to_html(md_text: str, title: str) -> str:
+    import markdown as md_lib
+    body = md_lib.markdown(md_text, extensions=["tables", "fenced_code", "codehilite"])
+    return f"""<!DOCTYPE html>
+<html lang="zh">
+<head><meta charset="utf-8"><title>{title}</title>
+<style>
+body {{ font-family: -apple-system, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.8; }}
+table {{ border-collapse: collapse; width: 100%; margin: 16px 0; }}
+th, td {{ border: 1px solid #ddd; padding: 8px 12px; text-align: left; }}
+th {{ background: #f5f5f5; }}
+img {{ max-width: 100%; }}
+pre {{ background: #f5f5f5; padding: 16px; border-radius: 6px; overflow-x: auto; }}
+</style></head>
+<body>{body}</body></html>"""
+
+
+def markdown_to_docx(md_text: str, title: str) -> bytes:
+    try:
+        from docx import Document
+        from docx.shared import Pt, Inches
+
+        doc = Document()
+        doc.styles["Normal"].font.size = Pt(11)
+        doc.add_heading(title, level=0)
+
+        for line in md_text.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("# "):
+                doc.add_heading(line[2:], level=1)
+            elif line.startswith("## "):
+                doc.add_heading(line[3:], level=2)
+            elif line.startswith("### "):
+                doc.add_heading(line[4:], level=3)
+            elif line.startswith("|"):
+                continue  # skip table lines (complex parsing needed)
+            else:
+                doc.add_paragraph(line)
+
+        buf = io.BytesIO()
+        doc.save(buf)
+        return buf.getvalue()
+    except ImportError:
+        raise HTTPException(status_code=503, detail="python-docx not installed")
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -13,9 +13,7 @@ interface TopBarProps {
 export function TopBar({ onPageChange, pdfFile, totalPages }: TopBarProps) {
   const currentPage = useAnnotationStore((s) => s.currentPage);
   const zoom = useAnnotationStore((s) => s.zoom);
-  const toolMode = useAnnotationStore((s) => s.toolMode);
   const setZoom = useAnnotationStore((s) => s.setZoom);
-  const setToolMode = useAnnotationStore((s) => s.setToolMode);
   const goBackToList = useDocumentListStore((s) => s.goBackToList);
   const addDocuments = useDocumentListStore((s) => s.addDocuments);
   const selectDocument = useDocumentListStore((s) => s.selectDocument);
@@ -67,7 +65,7 @@ export function TopBar({ onPageChange, pdfFile, totalPages }: TopBarProps) {
   return (
     <div className="topbar">
       <div className="page-nav">
-        <button className="back-btn" onClick={handleBack}>← 返回列表</button>
+        <button className="back-btn" onClick={handleBack}>返回列表</button>
         <span>|</span>
         <button onClick={handlePrev} disabled={currentPage <= 1}>上一页</button>
         {pdfFile && <span style={{ fontSize: 11, color: '#999', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdfFile.name}</span>}
@@ -75,28 +73,14 @@ export function TopBar({ onPageChange, pdfFile, totalPages }: TopBarProps) {
         <button onClick={handleNext} disabled={currentPage >= totalPages}>下一页</button>
       </div>
       <div className="zoom-control">
-        <span>Zoom:</span>
+        <span>缩放:</span>
         <button onClick={handleZoomOut}>−</button>
         <span style={{ minWidth: 40, textAlign: 'center' }}>{zoom}%</span>
         <button onClick={handleZoomIn}>+</button>
       </div>
-      <div className="tool-toggle">
-        <button
-          className={`tool-btn ${toolMode === 'select' ? 'active' : ''}`}
-          onClick={() => setToolMode('select')}
-        >
-          ◇ 选择
-        </button>
-        <button
-          className={`tool-btn ${toolMode === 'create' ? 'active' : ''}`}
-          onClick={() => setToolMode('create')}
-        >
-          ▭ 框选
-        </button>
-      </div>
       <div className="actions">
-        <button className="primary" onClick={handleExport}>📤 导出</button>
-        <button className="primary" onClick={handleReload}>📂 打开</button>
+        <button className="primary" onClick={handleExport}>导出</button>
+        <button className="primary" onClick={handleReload}>打开</button>
       </div>
       <input
         ref={fileInputRef}

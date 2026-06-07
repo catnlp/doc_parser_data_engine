@@ -1,6 +1,8 @@
 import { API_CONFIG } from './config';
 import type { PageInfo, PdfElement } from '../types/omnidoc';
 
+const BASE_URL = API_CONFIG.ocrModel.url;
+
 export interface OcrResponse {
   elements: Array<{ category_type: string; text: string; poly: number[] }>;
 }
@@ -134,4 +136,69 @@ function mockOcrData(layout: LayoutResult): PdfElement[] {
     markdown: contents[el.category_type] || `[${el.category_type}]`,
     image_path: '',
   }));
+}
+
+export async function callAiAction(action: string, content: string, params: Record<string, string> = {}): Promise<string> {
+  const resp = await postJson<{ result: string }>(
+    `${BASE_URL}/api/ai/action`,
+    { action, content, params },
+    120000,
+  );
+  return resp.result;
+}
+
+export async function callAiStream(
+  action: string,
+  content: string,
+  params: Record<string, string>,
+  onChunk: (chunk: string) => void,
+  onDone: () => void,
+  onError: (err: string) => void,
+): Promise<void> {
+  try {
+    const resp = await fetch(`${BASE_URL}/api/ai/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, content, params }),
+    });
+    if (!resp.ok) {
+      onError(`HTTP ${resp.status}: ${resp.statusText}`);
+      return;
+    }
+    const reader = resp.body?.getReader();
+    if (!reader) { onDone(); return; }
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') { onDone(); return; }
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.error) { onError(parsed.error); return; }
+            if (parsed.content) onChunk(parsed.content);
+          } catch {}
+        }
+      }
+    }
+    onDone();
+  } catch (e) {
+    onError(e instanceof Error ? e.message : 'Unknown error');
+  }
+}
+
+export async function convertDocument(format: string, markdown: string, title: string): Promise<Blob> {
+  const resp = await fetch(`${BASE_URL}/api/convert`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ format, markdown, title }),
+  });
+  if (!resp.ok) throw new Error(`Convert failed: ${resp.statusText}`);
+  return resp.blob();
 }

@@ -1,43 +1,37 @@
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useDocumentListStore } from '../store/useDocumentListStore';
 import { useAnnotationStore } from '../store/useAnnotationStore';
-import { TopBar } from '../components/TopBar';
-import { BottomNav } from '../components/BottomNav';
-import { LeftPanel } from '../components/left-panel/LeftPanel';
-import { RightPanel } from '../components/right-panel/RightPanel';
-import { ResizableSplit } from '../components/ResizableSplit';
+import { FourPanelLayout } from '../components/FourPanelLayout';
+import { ThumbnailNavigator } from '../components/ThumbnailNavigator';
+import { DocViewer } from '../components/DocViewer';
+import { ResultPanel } from '../components/ResultPanel';
+import { ChatPanel } from '../components/ChatPanel';
 import type { PdfDocument } from '../types/document';
 import type { PdfElement } from '../types/omnidoc';
 
 export default function AnnotateScreen() {
   const selectedDocumentId = useDocumentListStore((s) => s.selectedDocumentId);
   const imagesRestored = useDocumentListStore((s) => s.imagesRestored);
-  const pdfFile = useAnnotationStore((s) => s.pdfFile);
 
-  const currentPage = useAnnotationStore((s) => s.currentPage);
-  const totalPages = useAnnotationStore((s) => s.totalPages);
   const pdfInfo = useAnnotationStore((s) => s.pdfInfo);
   const pageInfo = useAnnotationStore((s) => s.pageInfo);
-  const renderedPages = useAnnotationStore((s) => s.renderedPages);
 
   useEffect(() => {
     if (!selectedDocumentId) return;
-
     const doc = useDocumentListStore.getState().documents.find((d) => d.id === selectedDocumentId);
     if (!doc) return;
-
     loadDocument(doc);
   }, [selectedDocumentId, imagesRestored]);
 
   const loadDocument = (doc: PdfDocument) => {
-    const totalPages = doc.parsedData.length;
-    if (totalPages === 0) return;
+    const tp = doc.parsedData.length;
+    if (tp === 0) return;
 
     const pdfInfoList: Array<{ pdf_info: PdfElement[]; page_info: { width: number; height: number } }> = [];
     const pageInfoList: Array<{ width: number; height: number }> = [];
     const renderedPagesList: Array<{ imageBase64: string; width: number; height: number }> = [];
 
-    for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
+    for (let pageIdx = 0; pageIdx < tp; pageIdx++) {
       const data = doc.parsedData[pageIdx];
       if (!data) break;
 
@@ -64,21 +58,21 @@ export default function AnnotateScreen() {
       pageInfo: pageInfoList,
       imagePath: doc.name,
       pdfFile: doc.file,
-      totalPages,
+      totalPages: tp,
       currentPage: 1,
       apiStatus: 'done',
       renderedPages: renderedPagesList,
       currentDocId: doc.id,
+      activeResultView: 'parse',
+      chatMessages: [],
+      selectedContent: '',
+      bboxVisible: true,
     });
   };
 
-  const handlePageChange = useCallback((page: number) => {
-    useAnnotationStore.getState().setCurrentPage(page);
-  }, []);
-
+  const currentPage = useAnnotationStore((s) => s.currentPage);
   const currentPageData = pdfInfo[currentPage - 1];
   const currentPageInfo = pageInfo[currentPage - 1];
-  const renderedPage = renderedPages[currentPage - 1];
 
   if (!currentPageData || !currentPageInfo) return null;
 
@@ -93,19 +87,19 @@ export default function AnnotateScreen() {
 
   return (
     <div className="annotation-app">
-      <TopBar onPageChange={handlePageChange} pdfFile={pdfFile} totalPages={totalPages} />
-      <ResizableSplit minWidthLeft={320} minWidthRight={320} initialRatio={0.55}>
-        {() => (
-          <LeftPanel
-            pdfFile={pdfFile}
-            pageNumber={currentPage}
-            pageInfo={{ width: currentPageInfo.width, height: currentPageInfo.height }}
-            renderedImage={renderedPage?.imageBase64 || null}
-          />
-        )}
-        {() => <RightPanel />}
-      </ResizableSplit>
-      <BottomNav onPageChange={handlePageChange} />
+      <FourPanelLayout
+        panels={[
+          { initialWidth: 14, minWidth: 10 },
+          { initialWidth: 30, minWidth: 18 },
+          { initialWidth: 36, minWidth: 22 },
+          { initialWidth: 20, minWidth: 15 },
+        ]}
+      >
+        <ThumbnailNavigator />
+        <DocViewer />
+        <ResultPanel />
+        <ChatPanel />
+      </FourPanelLayout>
     </div>
   );
 }

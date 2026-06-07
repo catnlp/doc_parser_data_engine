@@ -3,7 +3,14 @@ import type { PdfInfo, PageInfo, PdfElement } from '../types/omnidoc';
 import { useDocumentListStore } from './useDocumentListStore';
 
 export type ToolMode = 'select' | 'create';
+export type ResultView = 'parse' | 'translate' | 'markdown' | 'compare';
 export type ApiStatus = 'idle' | 'calling_layout' | 'calling_ocr' | 'done' | 'loading' | 'error';
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  resultType?: ResultView;
+}
 
 interface RenderedPage {
   imageBase64: string;
@@ -27,7 +34,13 @@ interface AnnotationStore {
   hoveredChunkId: string | null;
   toolMode: ToolMode;
   zoom: number;
-  leftPanelWidth: number;
+
+  activeResultView: ResultView;
+  chatMessages: ChatMessage[];
+  selectedContent: string;
+  bboxVisible: boolean;
+  p3Content: string;
+  p3Label: string;
 
   dirtyPages: Set<number>;
   elementDraftContent: string | null;
@@ -43,7 +56,12 @@ interface AnnotationStore {
   setHoveredChunkId: (id: string | null) => void;
   setToolMode: (mode: ToolMode) => void;
   setZoom: (zoom: number) => void;
-  setLeftPanelWidth: (width: number) => void;
+  setActiveResultView: (view: ResultView) => void;
+  addChatMessage: (msg: ChatMessage) => void;
+  clearChat: () => void;
+  setSelectedContent: (content: string) => void;
+  setBboxVisible: (visible: boolean) => void;
+  setP3Content: (content: string, label: string) => void;
   getPageElements: () => PdfElement[];
   getPageInfo: () => PageInfo | undefined;
   updateElement: (elementId: string, updates: Partial<PdfElement>) => void;
@@ -73,7 +91,13 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
   hoveredChunkId: null,
   toolMode: 'select',
   zoom: 100,
-  leftPanelWidth: 0,
+
+  activeResultView: 'parse',
+  chatMessages: [],
+  selectedContent: '',
+  bboxVisible: true,
+  p3Content: '',
+  p3Label: '',
 
   dirtyPages: new Set<number>(),
   elementDraftContent: null,
@@ -107,6 +131,12 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
     hoveredChunkId: null,
     toolMode: 'select',
     zoom: 100,
+    activeResultView: 'parse',
+    chatMessages: [],
+    selectedContent: '',
+    bboxVisible: true,
+    p3Content: '',
+    p3Label: '',
     dirtyPages: new Set<number>(),
     elementDraftContent: null,
     apiStatus: 'idle',
@@ -128,7 +158,17 @@ export const useAnnotationStore = create<AnnotationStore>((set, get) => ({
 
   setZoom: (zoom) => set({ zoom }),
 
-  setLeftPanelWidth: (width) => set({ leftPanelWidth: width }),
+  setActiveResultView: (view) => set({ activeResultView: view }),
+
+  addChatMessage: (msg) => set((state) => ({ chatMessages: [...state.chatMessages, msg] })),
+
+  clearChat: () => set({ chatMessages: [] }),
+
+  setSelectedContent: (content) => set({ selectedContent: content }),
+
+  setBboxVisible: (visible) => set({ bboxVisible: visible }),
+
+  setP3Content: (content, label) => set({ p3Content: content, p3Label: label }),
 
   getPageElements: () => get().pdfInfo[get().currentPage - 1]?.pdf_info || [],
 
