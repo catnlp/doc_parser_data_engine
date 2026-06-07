@@ -1599,13 +1599,38 @@ button:disabled {
 }
 
 .result-header {
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-primary);
-  background: #f8fafc;
+  padding: 0;
+  background: var(--color-bg-surface);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
+}
+
+.result-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.result-tabs button {
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.result-tabs button:hover {
+  color: var(--color-text-primary);
+  background: #f8fafc;
+}
+
+.result-tabs button.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: 600;
 }
 
 .result-content {

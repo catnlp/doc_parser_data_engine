@@ -7,11 +7,6 @@ import 'katex/dist/katex.min.css';
 import { useAnnotationStore, type ChatMessage } from '../store/useAnnotationStore';
 import { callAiStream } from '../api/models';
 
-const ACTIONS = [
-  { key: 'parse', label: '解析', icon: '📦' },
-  { key: 'translate', label: '翻译', icon: '🌐' },
-];
-
 export function ChatPanel() {
   const chatMessages = useAnnotationStore((s) => s.chatMessages);
   const addChatMessage = useAnnotationStore((s) => s.addChatMessage);
@@ -23,7 +18,6 @@ export function ChatPanel() {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [activeAction, setActiveAction] = useState<string>('');
   const listRef = useRef<HTMLDivElement>(null);
 
   const buildPageContent = useCallback(() => {
@@ -47,48 +41,6 @@ export function ChatPanel() {
     }
   }, [chatMessages]);
 
-  const handleAction = useCallback(async (action: string) => {
-    setActiveAction(action);
-    setLoading(true);
-
-    switch (action) {
-      case 'parse': {
-        setP3Content('__PARSE__', '解析');
-        setLoading(false);
-        return;
-      }
-      case 'translate': {
-        const pageContent = buildPageContent();
-        const prompt = `将以下文档第${currentPage}页的内容翻译为中文，保持原有Markdown格式。\n\n${pageContent}`;
-        addChatMessage({ role: 'assistant', content: '' });
-        let accumulated = '';
-        await callAiStream(
-          'chat', prompt, {},
-          (chunk) => {
-            accumulated += chunk;
-            useAnnotationStore.setState((state) => {
-              const msgs = [...state.chatMessages];
-              const last = msgs[msgs.length - 1];
-              if (last?.role === 'assistant') {
-                msgs[msgs.length - 1] = { ...last, content: accumulated };
-              }
-              return { chatMessages: msgs };
-            });
-          },
-          () => setLoading(false),
-          (err) => {
-            useAnnotationStore.setState((state) => {
-              const msgs = [...state.chatMessages];
-              if (msgs.length > 0) msgs[msgs.length - 1] = { role: 'assistant', content: `翻译失败: ${err}` };
-              return { chatMessages: msgs };
-            });
-            setLoading(false);
-          },
-        );
-        return;
-      }
-    }
-  }, [currentPage, buildPageContent, setP3Content, addChatMessage]);
 
   const handleSend = useCallback(async () => {
     if (!input.trim() || loading) return;
@@ -146,18 +98,6 @@ export function ChatPanel() {
 
   return (
     <div className="chat-panel">
-      <div className="chat-actions">
-        {ACTIONS.map((a) => (
-          <button
-            key={a.key}
-            className={activeAction === a.key ? 'active' : ''}
-            onClick={() => handleAction(a.key)}
-            disabled={loading}
-          >
-            {a.icon} {a.label}
-          </button>
-        ))}
-      </div>
       <div className="chat-header">
         <span>AI 对话</span>
         <button className="chat-clear-btn" onClick={clearChat}>清空</button>

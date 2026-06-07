@@ -7,6 +7,7 @@ import 'katex/dist/katex.min.css';
 import DOMPurify from 'dompurify';
 import { useAnnotationStore } from '../store/useAnnotationStore';
 import { ElementList } from './right-panel/RightPanel';
+import { ChunkList } from './right-panel/ChunkList';
 import type { PdfElement } from '../types/omnidoc';
 
 const FORMULA_TYPES = new Set(['equation', 'formula', 'display_formula']);
@@ -42,7 +43,7 @@ function CroppedFigure({ pageBase64, poly }: { pageBase64: string; poly: number[
 
 export function ResultPanel() {
   const p3Content = useAnnotationStore((s) => s.p3Content);
-  const p3Label = useAnnotationStore((s) => s.p3Label);
+  const setP3Content = useAnnotationStore((s) => s.setP3Content);
   const selectedElementId = useAnnotationStore((s) => s.selectedElementId);
   const currentPage = useAnnotationStore((s) => s.currentPage);
   const setCurrentPage = useAnnotationStore((s) => s.setCurrentPage);
@@ -51,8 +52,6 @@ export function ResultPanel() {
   const contentRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const lastFlipTimeRef = useRef(0);
-
-  const label = p3Label || 'Markdown';
 
   const allPages = useMemo(() => {
     return pdfInfo.map((info, pageIdx) => ({
@@ -107,9 +106,17 @@ export function ResultPanel() {
 
   return (
     <div className="result-panel">
-      <div className="result-header">{label}</div>
+      <div className="result-header">
+        <div className="result-tabs">
+          <button className={p3Content === '__CHUNK__' ? 'active' : ''} onClick={() => setP3Content('__CHUNK__', '分块列表')}>分块</button>
+          <button className={p3Content === '__PARSE__' ? 'active' : ''} onClick={() => setP3Content('__PARSE__', '元素')}>元素</button>
+          <button className={!p3Content || p3Content === '__MARKDOWN__' ? 'active' : ''} onClick={() => setP3Content('', 'Markdown')}>Markdown</button>
+        </div>
+      </div>
       <div className="result-content" ref={contentRef}>
-        {p3Content === '__PARSE__' ? (
+        {p3Content === '__CHUNK__' ? (
+          <ChunkList />
+        ) : p3Content === '__PARSE__' ? (
           <ElementList />
         ) : p3Content ? (
           <div className="result-markdown">
